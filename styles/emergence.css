@@ -1,0 +1,112 @@
+/* emergence-ui/styles/emergence.css
+   Shared styles for all Emergence components.
+   Host site provides its own layout/header/footer. */
+
+:root {
+  --em-bg: #1a1a2e;
+  --em-surface: rgba(255, 255, 255, 0.03);
+  --em-border: #333;
+  --em-text: #e0e0e0;
+  --em-text-muted: #888;
+  --em-text-dim: #666;
+  --em-accent: #f0c040;
+  --em-link: #7cacf8;
+  --em-success: #50c878;
+  --em-danger: #e05050;
+  --em-radius: 8px;
+  --em-radius-sm: 4px;
+}
+
+.em-container { max-width: 900px; margin: 0 auto; padding: 0 16px; }
+.em-section { padding: 32px 0; border-bottom: 1px solid var(--em-border); }
+.em-section:last-child { border-bottom: none; }
+
+/* Typography */
+.em-h1 { font-size: 24px; font-weight: bold; color: #fff; }
+.em-h2 { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 16px; }
+.em-h3 { font-size: 15px; font-weight: bold; color: #fff; }
+.em-subtitle { color: var(--em-text-muted); font-size: 14px; line-height: 1.6; }
+.em-label { font-size: 11px; color: var(--em-text-dim); text-transform: uppercase; letter-spacing: 1px; }
+.em-mono { font-family: monospace; font-size: 13px; color: var(--em-text-muted); }
+
+/* Cards */
+.em-card {
+  padding: 16px;
+  background: var(--em-surface);
+  border: 1px solid var(--em-border);
+  border-radius: var(--em-radius);
+  transition: border-color 0.2s;
+}
+.em-card:hover { border-color: var(--em-link); }
+.em-card a { text-decoration: none; color: inherit; display: block; }
+
+/* Badge */
+.em-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: var(--em-radius-sm);
+  font-size: 12px;
+  font-weight: bold;
+}
+.em-badge--completed { background: rgba(80, 200, 120, 0.15); color: var(--em-success); }
+.em-badge--running { background: rgba(124, 172, 248, 0.15); color: var(--em-link); }
+.em-badge--aborted { background: rgba(224, 80, 80, 0.15); color: var(--em-danger); }
+
+/* Health bar */
+.em-health-bar {
+  height: 6px;
+  background: var(--em-border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.em-health-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--em-success);
+}
+
+/* Grid layouts */
+.em-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.em-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.em-grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+
+/* Stat box */
+.em-stat {
+  padding: 10px;
+  background: var(--em-surface);
+  border-radius: 6px;
+  text-align: center;
+}
+.em-stat__value { font-size: 20px; font-weight: bold; margin-top: 4px; }
+
+/* Activity feed */
+.em-feed-item { font-size: 13px; line-height: 2.2; color: var(--em-text-muted); }
+.em-feed-item__tick { font-family: monospace; font-size: 11px; color: var(--em-text-dim); }
+.em-feed-item__agent { color: var(--em-accent); }
+
+/* Journal entry */
+.em-journal {
+  padding: 16px;
+  background: var(--em-surface);
+  border-radius: var(--em-radius);
+  border-left: 3px solid var(--em-accent);
+  margin-bottom: 8px;
+}
+.em-journal__text { font-size: 13px; color: var(--em-text-muted); font-style: italic; line-height: 1.5; }
+
+/* Conversation block */
+.em-conversation {
+  padding: 12px;
+  background: var(--em-surface);
+  border-radius: var(--em-radius);
+  margin-bottom: 8px;
+}
+.em-conversation__turn { font-size: 13px; color: var(--em-text-muted); font-style: italic; line-height: 1.5; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .em-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .em-grid-5 { grid-template-columns: repeat(2, 1fr); }
+  .em-grid-2 { grid-template-columns: 1fr; }
+}
