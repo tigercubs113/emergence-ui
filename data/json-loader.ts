@@ -140,6 +140,22 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
       const agentCount = rawRun.agent_count || agents.length;
       const agentsAlive = rawRun.agents_alive || agents.filter((a: any) => a.is_alive).length;
 
+      // Aggregate relationships from shard data
+      const relationshipMap = new Map<string, any>();
+      for (const df of dayFiles) {
+        if (df.relationships) {
+          for (const r of df.relationships) {
+            const key = [r.agent_name, r.target_name].sort().join('::');
+            relationshipMap.set(key, {
+              agent_a: r.agent_name,
+              agent_b: r.target_name,
+              type: r.status ?? r.type ?? 'acquaintance',
+              score: r.impression_score ?? r.score ?? 0,
+            });
+          }
+        }
+      }
+
       const base = mapRun(rawRun);
       return {
         ...base,
@@ -154,7 +170,7 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
           : manifest.config_snapshot?.llm ?? base.model_config,
         agents,
         days: Array.from(dayMap.values()).sort((a, b) => a.sim_day - b.sim_day),
-        relationships: manifest.relationships ?? [],
+        relationships: Array.from(relationshipMap.values()),
       };
     },
 
@@ -189,19 +205,34 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
         stats.crafts_attempted += shard.stats?.crafts_attempted ?? 0;
         stats.rest_events += shard.stats?.rest_events ?? 0;
 
-        if (shard.events) events.push(...shard.events);
+        if (shard.actions_summary) {
+          for (const agentSummary of shard.actions_summary) {
+            if (agentSummary?.actions) {
+              events.push(
+                ...agentSummary.actions.map((a: any) => ({
+                  tick: a.tick,
+                  action_type: a.action_type,
+                  target: a.target ?? '',
+                  outcome: a.outcome ?? '',
+                  agent_name: agentSummary.agent_name,
+                }))
+              );
+            }
+          }
+        } else if (shard.events) {
+          events.push(...shard.events);
+        }
         if (shard.conversations) conversations.push(...shard.conversations.map(mapConversation));
-        if (shard.agent_states) {
-          for (const agent of shard.agent_states) {
+        const agentStates = shard.agent_states ?? shard.agents;
+        if (agentStates) {
+          for (const agent of agentStates) {
+            const rawNeeds = agent.needs ?? {};
+            const needsArray = Array.isArray(rawNeeds)
+              ? rawNeeds.map((n: any) => ({ label: n.label ?? n.name ?? '', value: n.value ?? 0, max: n.max ?? 5 }))
+              : Object.entries(rawNeeds).map(([label, value]) => ({ label, value: value as number, max: 5 }));
             needStates.push({
               agent_name: agent.name,
-              needs: filterInternalNeeds(
-                (agent.needs ?? []).map((n: any) => ({
-                  label: formatNeedLabel(n.label ?? n.sub_need ?? n.key),
-                  value: n.current_value ?? n.value ?? 0,
-                  max: n.max ?? 5,
-                }))
-              ),
+              needs: filterInternalNeeds(needsArray),
             });
           }
         }
