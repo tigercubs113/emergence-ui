@@ -68,6 +68,30 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
     };
   }
 
+  function mapConversation(raw: any): import('./types.js').Conversation {
+    const participants = (raw.participants ?? []).map((p: any) =>
+      typeof p === 'string' ? p : p.name ?? ''
+    );
+    const turns = (raw.turns ?? []).map((t: any) => ({
+      speaker: t.speaker ?? t.speaker_name ?? '',
+      text: t.text ?? t.content ?? '',
+    }));
+    return {
+      id: raw.id ?? raw.conversation_id ?? '',
+      participants,
+      turns,
+      end_reason: raw.end_reason ?? '',
+      relationship_changes: (raw.relationship_changes ?? []).map((rc: any) => ({
+        agent_a: rc.agent_a ?? '',
+        agent_b: rc.agent_b ?? '',
+        old_type: rc.old_type ?? '',
+        new_type: rc.new_type ?? '',
+        old_score: rc.old_score ?? 0,
+        new_score: rc.new_score ?? 0,
+      })),
+    };
+  }
+
   return {
     async listRuns(): Promise<Run[]> {
       return (runsJson.runs ?? []).map(mapRun);
@@ -150,7 +174,7 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
         stats.rest_events += shard.stats?.rest_events ?? 0;
 
         if (shard.events) events.push(...shard.events);
-        if (shard.conversations) conversations.push(...shard.conversations);
+        if (shard.conversations) conversations.push(...shard.conversations.map(mapConversation));
         if (shard.agent_states) {
           for (const agent of shard.agent_states) {
             needStates.push({
@@ -209,7 +233,9 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
         }
         if (shard.conversations) {
           totalConversations += shard.conversations.filter(
-            (c: any) => c.participants?.includes(agent.name)
+            (c: any) => (c.participants ?? []).some((p: any) =>
+              (typeof p === 'string' ? p : p.name) === agent.name
+            )
           ).length;
         }
         if (shard.memories) {
