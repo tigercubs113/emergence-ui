@@ -78,7 +78,7 @@ const runPath = `${basePath}/run/${runNumber}`;
             : 'var(--em-link)';
           return (
             <div>
-              <a href={`${runPath}/agent/${other.toLowerCase()}/`} style={`color: var(--em-accent);`}>{other}</a>
+              <a href={`${runPath}/agent/${other}/`} style={`color: var(--em-accent);`}>{other}</a>
               {' '}&mdash;{' '}
               <span style={`color: ${typeColor}`}>{rel.type.replace('_', ' ')}</span>
               {' '}<span style="color: var(--em-text-dim);">({rel.score.toFixed(1)})</span>

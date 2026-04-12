@@ -74,7 +74,7 @@ const runPath = `${basePath}/run/${run.run_number}`;
     {run.agents.length <= 20 ? (
       <div class="em-grid-4">
         {run.agents.map(agent => (
-          <AgentCard agent={agent} href={`${runPath}/agent/${agent.name.toLowerCase()}/`} />
+          <AgentCard agent={agent} href={`${runPath}/agent/${agent.name}/`} />
         ))}
       </div>
     ) : (
@@ -83,7 +83,7 @@ const runPath = `${basePath}/run/${run.run_number}`;
           style="width: 100%; padding: 8px 12px; background: var(--em-surface); border: 1px solid var(--em-border); border-radius: var(--em-radius-sm); color: var(--em-text); margin-bottom: 12px;" />
         <div class="em-grid-4">
           {run.agents.slice(0, 20).map(agent => (
-            <AgentCard agent={agent} href={`${runPath}/agent/${agent.name.toLowerCase()}/`} />
+            <AgentCard agent={agent} href={`${runPath}/agent/${agent.name}/`} />
           ))}
         </div>
         <div class="em-subtitle" style="margin-top: 8px;">Showing 20 of {run.agents.length} agents</div>

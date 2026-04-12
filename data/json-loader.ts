@@ -94,7 +94,7 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
 
   return {
     async listRuns(): Promise<Run[]> {
-      return (runsJson.runs ?? []).map(mapRun);
+      return (runsJson.runs ?? []).map(mapRun).sort((a, b) => b.run_number - a.run_number);
     },
 
     async getRun(id: string): Promise<RunDetail> {
@@ -134,8 +134,24 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
         }
       }
 
+      // Derive stats from manifest + shard data when runs.json lacks them
+      const tickCount = rawRun.tick_count ?? manifest.total_ticks ?? 0;
+      const ticksPerDay = manifest.config_snapshot?.clock?.ticks_per_day ?? 100;
+      const agentCount = rawRun.agent_count || agents.length;
+      const agentsAlive = rawRun.agents_alive || agents.filter((a: any) => a.is_alive).length;
+
+      const base = mapRun(rawRun);
       return {
-        ...mapRun(rawRun),
+        ...base,
+        tick_count: base.tick_count || tickCount,
+        sim_days: base.sim_days || parseFloat((tickCount / ticksPerDay).toFixed(1)),
+        agent_count: base.agent_count || agentCount,
+        agents_alive: base.agents_alive || agentsAlive,
+        prng_seed: base.prng_seed || (manifest.config_snapshot?.seed ?? 0),
+        wall_clock_ms: base.wall_clock_ms || (manifest.wall_clock_ms ?? 0),
+        model_config: base.model_config.routes && Object.keys(base.model_config.routes).length > 0
+          ? base.model_config
+          : manifest.config_snapshot?.llm ?? base.model_config,
         agents,
         days: Array.from(dayMap.values()).sort((a, b) => a.sim_day - b.sim_day),
         relationships: manifest.relationships ?? [],
@@ -168,8 +184,8 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
         const tr = normalizeTickRange(shard.tick_range);
         tickStart = Math.min(tickStart, tr[0]);
         tickEnd = Math.max(tickEnd, tr[1]);
-        stats.decisions += shard.stats?.decisions_today ?? 0;
-        stats.conversations += shard.stats?.conversations_today ?? 0;
+        stats.decisions += shard.stats?.decisions_today ?? shard.stats?.total_actions ?? 0;
+        stats.conversations += shard.stats?.conversations_today ?? shard.stats?.conversations ?? 0;
         stats.crafts_attempted += shard.stats?.crafts_attempted ?? 0;
         stats.rest_events += shard.stats?.rest_events ?? 0;
 
@@ -219,7 +235,20 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
       let memoriesFormed = 0;
 
       for (const shard of allShards) {
-        if (shard.events) {
+        if (shard.actions_summary) {
+          const agentSummary = shard.actions_summary.find((a: any) => a.agent_name === agent.name);
+          if (agentSummary?.actions) {
+            decisions.push(
+              ...agentSummary.actions.map((a: any) => ({
+                tick: a.tick,
+                action_type: a.action_type,
+                target: a.target ?? '',
+                outcome: a.outcome ?? '',
+                agent_name: agent.name,
+              }))
+            );
+          }
+        } else if (shard.events) {
           decisions.push(
             ...shard.events.filter((e: any) => e.agent_name === agent.name)
           );
@@ -228,7 +257,7 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
           journalEntries.push(
             ...shard.journals
               .filter((j: any) => j.agent_name === agent.name)
-              .map((j: any) => ({ sim_day: shard.sim_day, text: j.text }))
+              .map((j: any) => ({ sim_day: shard.sim_day, text: j.text ?? j.content ?? '' }))
           );
         }
         if (shard.conversations) {
