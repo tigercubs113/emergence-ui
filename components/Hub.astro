@@ -1,0 +1,55 @@
+---
+// emergence-ui/components/Hub.astro
+import type { Run } from '../data/types';
+import Attribution from './Attribution.astro';
+import RunCard from './RunCard.astro';
+
+interface Props {
+  runs: Run[];
+  basePath: string;
+}
+
+const { runs, basePath } = Astro.props;
+---
+<div class="em-container">
+  <!-- Hero -->
+  <section class="em-section" style="text-align: center; padding: 48px 0;">
+    <h1 class="em-h1" style="font-size: 28px;">Project Emergence</h1>
+    <p class="em-subtitle" style="max-width: 600px; margin: 8px auto 0;">
+      AI agents in a world governed by Maslow's hierarchy of needs.
+      No scripts, no rails &mdash; just survival, cooperation, and whatever emerges.
+    </p>
+  </section>
+
+  <!-- Attribution -->
+  <Attribution />
+
+  <!-- What we changed -->
+  <section class="em-section">
+    <div class="em-h2">What we changed</div>
+    <div class="em-grid-2" style="gap: 16px;">
+      <div class="em-card">
+        <div class="em-label" style="color: var(--em-accent); margin-bottom: 4px;">Behavioral Model</div>
+        <div class="em-subtitle">Maslow's hierarchy of needs replaces flat trait-based behavior</div>
+      </div>
+      <div class="em-card">
+        <div class="em-label" style="color: var(--em-accent); margin-bottom: 4px;">Tick Engine</div>
+        <div class="em-subtitle">Three-layer architecture: biological, cognitive, social</div>
+      </div>
+      <div class="em-card">
+        <div class="em-label" style="color: var(--em-accent); margin-bottom: 4px;">Survival Systems</div>
+        <div class="em-subtitle">Crafting, resources, recipes, and skill progression</div>
+      </div>
+      <div class="em-card">
+        <div class="em-label" style="color: var(--em-accent); margin-bottom: 4px;">LLM Routing</div>
+        <div class="em-subtitle">Multi-model cognitive pipeline: route each reasoning task to the right LLM tier</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Run listing -->
+  <section class="em-section">
+    <div class="em-h2">Simulation Runs</div>
+    {runs.map(run => <RunCard run={run} basePath={basePath} />)}
+  </section>
+</div>

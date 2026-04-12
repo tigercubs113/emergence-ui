@@ -1,0 +1,27 @@
+---
+// emergence-ui/components/Attribution.astro
+// Park et al. "Generative Agents" (2023) attribution block.
+---
+<section class="em-section">
+  <div class="em-container">
+    <div style="display: flex; gap: 24px; align-items: flex-start;">
+      <div style="flex-shrink: 0; width: 48px; height: 48px; background: #444; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📄</div>
+      <div>
+        <div class="em-h3" style="margin-bottom: 4px;">Standing on the shoulders of Generative Agents</div>
+        <p class="em-subtitle" style="margin-bottom: 12px;">
+          Project Emergence builds on the foundational work of Park et al. (2023) &mdash;
+          "Generative Agents: Interactive Simulacra of Human Behavior."
+          Their architecture for memory, reflection, and planning is the base layer we inherited.
+          We rebuilt the tick engine, replaced their behavioral model with Maslow's hierarchy of needs,
+          added a full crafting system with resources, recipes, and skill progression,
+          and redesigned the cognitive pipeline for multi-model LLM routing.
+          Their work made ours possible.
+        </p>
+        <div style="display: flex; gap: 16px; font-size: 13px;">
+          <a href="https://arxiv.org/abs/2304.03442" class="em-link" target="_blank" rel="noopener">📄 Read the paper (arXiv)</a>
+          <a href="https://github.com/joonspk-research/generative_agents" class="em-link" target="_blank" rel="noopener">💻 Their GitHub</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
