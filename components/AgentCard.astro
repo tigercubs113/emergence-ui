@@ -1,0 +1,22 @@
+---
+// emergence-ui/components/AgentCard.astro
+import type { AgentSummary } from '../data/types';
+
+interface Props {
+  agent: AgentSummary;
+  href: string;
+}
+
+const { agent, href } = Astro.props;
+---
+<a href={href} class="em-card" style="display: block; text-decoration: none; color: inherit;">
+  <div class="em-h3">{agent.name}</div>
+  <div style="font-size: 12px; color: var(--em-accent); margin-top: 2px;">{agent.skills.join(' · ')}</div>
+  <div class="em-subtitle" style="margin-top: 8px; line-height: 1.4;">{agent.backstory}</div>
+  <div class="em-health-bar">
+    <div class="em-health-bar__fill" style={`width: ${agent.health_pct}%`}></div>
+  </div>
+  <div style="font-size: 11px; color: var(--em-text-dim); margin-top: 4px;">
+    Health {agent.health_pct}%{!agent.is_alive && ' · DEAD'}
+  </div>
+</a>

@@ -1,0 +1,117 @@
+---
+// emergence-ui/components/RunDetail.astro
+import type { RunDetail as RunDetailType } from '../data/types';
+import { formatDuration, formatTickRange } from '../utils/format';
+import AgentCard from './AgentCard.astro';
+
+interface Props {
+  run: RunDetailType;
+  basePath: string;
+}
+
+const { run, basePath } = Astro.props;
+const runPath = `${basePath}/run/${run.run_number}`;
+---
+<div class="em-container">
+  <!-- Breadcrumb -->
+  <div style="padding: 12px 0; font-size: 13px; color: var(--em-text-dim);">
+    <a href={basePath} style="color: var(--em-link);">Project Emergence</a> &rarr; Run {run.run_number}
+  </div>
+
+  <!-- Header -->
+  <section class="em-section">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <h1 class="em-h1">{run.name}</h1>
+        <div class="em-mono" style="margin-top: 8px;">{run.id}</div>
+      </div>
+      <div class={`em-badge em-badge--${run.status}`}>{run.status.toUpperCase()}</div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="em-grid-5" style="margin-top: 24px;">
+      <div class="em-stat">
+        <div class="em-label">Ticks</div>
+        <div class="em-stat__value">{run.tick_count}</div>
+      </div>
+      <div class="em-stat">
+        <div class="em-label">Sim Days</div>
+        <div class="em-stat__value">{run.sim_days.toFixed(1)}</div>
+      </div>
+      <div class="em-stat">
+        <div class="em-label">Agents</div>
+        <div class="em-stat__value">{run.agents_alive} / {run.agent_count}</div>
+        {run.agents_alive === run.agent_count &&
+          <div style="font-size: 11px; color: var(--em-success);">all survived</div>
+        }
+      </div>
+      <div class="em-stat">
+        <div class="em-label">PRNG Seed</div>
+        <div class="em-stat__value">{run.prng_seed}</div>
+      </div>
+      <div class="em-stat">
+        <div class="em-label">Wall Clock</div>
+        <div class="em-stat__value">{formatDuration(run.wall_clock_ms)}</div>
+      </div>
+    </div>
+
+    <!-- LLM Routing -->
+    {run.model_config && Object.keys(run.model_config.routes).length > 0 && (
+      <div class="em-card" style="margin-top: 20px;">
+        <div class="em-label" style="margin-bottom: 8px;">LLM Routing</div>
+        <div class="em-grid-2" style="font-size: 13px; color: var(--em-text-muted);">
+          {Object.entries(run.model_config.routes).map(([key, route]) => (
+            <div><span style="color: var(--em-accent);">{key}:</span> {(route as any).model}</div>
+          ))}
+        </div>
+      </div>
+    )}
+  </section>
+
+  <!-- Agent Cast -->
+  <section class="em-section">
+    <div class="em-h2">The Cast</div>
+    {run.agents.length <= 20 ? (
+      <div class="em-grid-4">
+        {run.agents.map(agent => (
+          <AgentCard agent={agent} href={`${runPath}/agent/${agent.name.toLowerCase()}/`} />
+        ))}
+      </div>
+    ) : (
+      <div>
+        <input type="text" placeholder="Search agents..." class="em-search"
+          style="width: 100%; padding: 8px 12px; background: var(--em-surface); border: 1px solid var(--em-border); border-radius: var(--em-radius-sm); color: var(--em-text); margin-bottom: 12px;" />
+        <div class="em-grid-4">
+          {run.agents.slice(0, 20).map(agent => (
+            <AgentCard agent={agent} href={`${runPath}/agent/${agent.name.toLowerCase()}/`} />
+          ))}
+        </div>
+        <div class="em-subtitle" style="margin-top: 8px;">Showing 20 of {run.agents.length} agents</div>
+      </div>
+    )}
+  </section>
+
+  <!-- Chronicle -->
+  <section class="em-section">
+    <div class="em-h2">Chronicle</div>
+    {run.days.map(day => (
+      <a href={`${runPath}/day/${day.sim_day}/`} class="em-card" style="display: block; text-decoration: none; color: inherit; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div class="em-h3">
+              Day {day.sim_day}
+              <span style="color: var(--em-text-dim); font-weight: normal; font-size: 13px;">
+                &mdash; Ticks {formatTickRange(day.tick_range)}
+              </span>
+            </div>
+            {day.narrative && <div class="em-subtitle" style="margin-top: 4px;">{day.narrative}</div>}
+          </div>
+          <div style="text-align: right; font-size: 12px; color: var(--em-text-dim);">
+            <div>{day.decision_count} decisions</div>
+            <div>{day.conversation_count} conversations</div>
+          </div>
+        </div>
+      </a>
+    ))}
+  </section>
+</div>
