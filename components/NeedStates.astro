@@ -1,0 +1,30 @@
+---
+import type { AgentNeedSnapshot } from '../data/types';
+import { formatNeedValue } from '../utils/format';
+
+interface Props {
+  needStates: AgentNeedSnapshot[];
+  topN?: number;
+}
+
+const { needStates, topN = 5 } = Astro.props;
+// Show only top N physiological/safety needs per the spec
+const PRIORITY_NEEDS = ['Thirst', 'Hunger', 'Rest', 'Shelter', 'Health', 'Health Safety', 'Air'];
+---
+<div class="em-grid-2">
+  {PRIORITY_NEEDS.slice(0, topN).map(needLabel => {
+    // Average across all agents for this need
+    const values = needStates
+      .flatMap(s => s.needs)
+      .filter(n => n.label === needLabel);
+    if (values.length === 0) return null;
+    const avg = values.reduce((sum, v) => sum + v.value, 0) / values.length;
+    const max = values[0].max;
+    return (
+      <div class="em-card" style="padding: 8px 12px;">
+        <span style="color: var(--em-accent);">{needLabel}</span>
+        <span style="color: var(--em-text-muted); float: right;">avg {formatNeedValue(avg, max)}</span>
+      </div>
+    );
+  })}
+</div>

@@ -1,0 +1,73 @@
+---
+import type { DayDetail as DayDetailType } from '../data/types';
+import { formatTickRange } from '../utils/format';
+import ActivityFeed from './ActivityFeed.astro';
+import ConversationBlock from './ConversationBlock.astro';
+import NeedStates from './NeedStates.astro';
+
+interface Props {
+  day: DayDetailType;
+  runNumber: number;
+  totalDays: number;
+  basePath: string;
+}
+
+const { day, runNumber, totalDays, basePath } = Astro.props;
+const runPath = `${basePath}/run/${runNumber}`;
+const prevDay = day.sim_day > 0 ? day.sim_day - 1 : null;
+const nextDay = day.sim_day < totalDays - 1 ? day.sim_day + 1 : null;
+---
+<div class="em-container">
+  <!-- Breadcrumb + nav -->
+  <div style="padding: 12px 0; font-size: 12px; color: var(--em-text-dim); display: flex; justify-content: space-between;">
+    <div>
+      <a href={runPath} style="color: var(--em-link);">Run {runNumber}</a> &rarr; Day {day.sim_day}
+    </div>
+    <div>
+      {prevDay !== null && <a href={`${runPath}/day/${prevDay}/`} style="color: var(--em-link);">&larr; Day {prevDay}</a>}
+      {prevDay !== null && nextDay !== null && ' | '}
+      {nextDay !== null && <a href={`${runPath}/day/${nextDay}/`} style="color: var(--em-link);">Day {nextDay} &rarr;</a>}
+    </div>
+  </div>
+
+  <!-- Day header -->
+  <section class="em-section">
+    <h1 class="em-h1">
+      Day {day.sim_day}
+      <span style="color: var(--em-text-dim); font-size: 14px; font-weight: normal;">
+        Ticks {formatTickRange(day.tick_range)}
+      </span>
+    </h1>
+    <div style="display: flex; gap: 20px; margin-top: 12px; font-size: 13px; color: var(--em-text-muted);">
+      <div><strong style="color: #fff;">{day.stats.decisions}</strong> decisions</div>
+      <div><strong style="color: #fff;">{day.stats.conversations}</strong> conversations</div>
+      <div><strong style="color: #fff;">{day.stats.crafts_attempted}</strong> crafts attempted</div>
+      <div><strong style="color: #fff;">{day.stats.rest_events}</strong> rest events</div>
+    </div>
+  </section>
+
+  <!-- Activity Feed -->
+  <section class="em-section">
+    <div class="em-h2">Activity Feed</div>
+    <ActivityFeed events={day.events} />
+  </section>
+
+  <!-- Conversations -->
+  {day.conversations.length > 0 && (
+    <section class="em-section">
+      <div class="em-h2">Conversations</div>
+      {day.conversations.map(conv => <ConversationBlock conversation={conv} />)}
+    </section>
+  )}
+
+  <!-- Need States -->
+  {day.need_states.length > 0 && (
+    <section class="em-section">
+      <div class="em-h2">Need States (end of day)</div>
+      <div style="font-size: 12px; color: var(--em-text-dim); margin-bottom: 8px;">
+        Top 5 Maslow needs -- Physiological + Safety
+      </div>
+      <NeedStates needStates={day.need_states} />
+    </section>
+  )}
+</div>

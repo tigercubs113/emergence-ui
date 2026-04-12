@@ -1,0 +1,28 @@
+---
+import type { ActivityEvent } from '../data/types';
+
+interface Props {
+  events: ActivityEvent[];
+  limit?: number;
+}
+
+const { events, limit = 50 } = Astro.props;
+const displayed = events.slice(0, limit);
+const remaining = events.length - limit;
+---
+<div>
+  {displayed.map(e => (
+    <div class="em-feed-item">
+      <span class="em-feed-item__tick">T{e.tick}</span>{' '}
+      <span class="em-feed-item__agent">{e.agent_name}</span>{' '}
+      {e.action_type}{e.target ? `:${e.target}` : ''}
+      {e.outcome === 'failed' && <span style="color: var(--em-danger);"> (failed)</span>}
+      {e.detail && <span style="color: var(--em-text-dim);"> &mdash; {e.detail}</span>}
+    </div>
+  ))}
+  {remaining > 0 && (
+    <div style="color: var(--em-text-dim); font-size: 12px; margin-top: 4px;">
+      ... {remaining} more events
+    </div>
+  )}
+</div>
