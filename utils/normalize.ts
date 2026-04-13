@@ -28,9 +28,9 @@ export function normalizePersonality(
 
 export function normalizeStatus(
   status: string | undefined
-): 'running' | 'completed' | 'aborted' {
+): 'running' | 'paused' | 'completed' | 'aborted' {
   const s = (status ?? 'running').toLowerCase();
-  if (s === 'completed' || s === 'aborted') return s;
+  if (s === 'completed' || s === 'aborted' || s === 'paused') return s as 'completed' | 'aborted' | 'paused';
   return 'running';
 }
 
