@@ -1,6 +1,7 @@
 ---
 import type { DayDetail as DayDetailType } from '../data/types';
 import { formatTickRange } from '../utils/format';
+import { derivePrevNext } from '../utils/day-nav';
 import ActivityFeed from './ActivityFeed.astro';
 import ConversationBlock from './ConversationBlock.astro';
 import NeedStates from './NeedStates.astro';
@@ -8,14 +9,16 @@ import NeedStates from './NeedStates.astro';
 interface Props {
   day: DayDetailType;
   runNumber: number;
-  totalDays: number;
+  // dayList: sorted ascending list of sim_day numbers actually exported for
+  // this run.  Host pages derive via (await loader.getRun(id)).days.map(d => d.sim_day).
+  // Replaces the old totalDays arithmetic, which broke on non-contiguous day exports.
+  dayList: number[];
   basePath: string;
 }
 
-const { day, runNumber, totalDays, basePath } = Astro.props;
+const { day, runNumber, dayList, basePath } = Astro.props;
 const runPath = `${basePath}/run/${runNumber}`;
-const prevDay = day.sim_day > 0 ? day.sim_day - 1 : null;
-const nextDay = day.sim_day < totalDays - 1 ? day.sim_day + 1 : null;
+const { prev: prevDay, next: nextDay } = derivePrevNext(day.sim_day, dayList);
 ---
 <div class="em-container">
   <!-- Breadcrumb + nav -->
