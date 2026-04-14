@@ -91,7 +91,7 @@ const runPath = `${basePath}/run/${run.run_number}`;
     )}
   </section>
 
-  <!-- Chronicle -->
+  <!-- Chronicle (search script lives at the bottom of the file) -->
   <section class="em-section">
     <div class="em-h2">Chronicle</div>
     {run.days.map(day => (
@@ -115,3 +115,27 @@ const runPath = `${basePath}/run/${run.run_number}`;
     ))}
   </section>
 </div>
+
+<script>
+  // Client-side filter for the agent cast search input.
+  // Astro auto-scopes <script> tags; this only runs on RunDetail pages.
+  import { applyAgentSearch } from '../utils/agent-search.js';
+
+  function wireAgentSearch() {
+    const input = document.querySelector<HTMLInputElement>('.em-search');
+    if (!input) return;
+    const cards = Array.from(
+      document.querySelectorAll<HTMLElement>('.em-agent-card')
+    );
+    if (cards.length === 0) return;
+    input.addEventListener('input', () => {
+      applyAgentSearch(cards, input.value);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireAgentSearch);
+  } else {
+    wireAgentSearch();
+  }
+</script>

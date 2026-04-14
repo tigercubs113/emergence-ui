@@ -9,7 +9,7 @@ interface Props {
 
 const { agent, href } = Astro.props;
 ---
-<a href={href} class="em-card" style="display: block; text-decoration: none; color: inherit;">
+<a href={href} class="em-card em-agent-card" data-agent-name={agent.name} style="display: block; text-decoration: none; color: inherit;">
   <div class="em-h3">{agent.name}</div>
   <div style="font-size: 12px; color: var(--em-accent); margin-top: 2px;">{agent.skills.join(' · ')}</div>
   <div class="em-subtitle" style="margin-top: 8px; line-height: 1.4;">{agent.backstory}</div>
