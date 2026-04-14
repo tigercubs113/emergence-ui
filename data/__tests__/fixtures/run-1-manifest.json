@@ -1,0 +1,32 @@
+{
+  "total_ticks": 200,
+  "wall_clock_ms": 12000,
+  "config_snapshot": {
+    "seed": 1337,
+    "clock": { "ticks_per_day": 100 },
+    "llm": {
+      "routes": { "default": { "provider": "anthropic", "model": "haiku-4.5" } },
+      "fallback": { "provider": "anthropic", "model": "haiku-4.5" }
+    }
+  },
+  "agents_initial": [
+    {
+      "id": "agent-alice",
+      "name": "Alice",
+      "skills": ["Healing", "Foraging"],
+      "personality_summary": "A quiet healer who prefers solitude.",
+      "health_pct": 100,
+      "is_alive": true,
+      "occupation": "Healer"
+    },
+    {
+      "id": "agent-bob",
+      "name": "Bob",
+      "skills": ["Crafting"],
+      "personality_summary": "An eager craftsman.",
+      "health_pct": 95,
+      "is_alive": true,
+      "occupation": "Crafter"
+    }
+  ]
+}

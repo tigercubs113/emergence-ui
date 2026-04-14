@@ -1,0 +1,75 @@
+{
+  "sim_day": 0,
+  "tick_range": [0, 49],
+  "stats": {
+    "decisions_today": 4,
+    "conversations_today": 1,
+    "crafts_attempted": 1,
+    "rest_events": 0
+  },
+  "narrative": "Day 0 shard A narrative.",
+  "actions_summary": [
+    {
+      "agent_name": "Alice",
+      "actions": [
+        { "tick": 1, "action_type": "forage", "target": "berries", "outcome": "success" },
+        { "tick": 10, "action_type": "rest", "target": "", "outcome": "success" }
+      ]
+    },
+    {
+      "agent_name": "Bob",
+      "actions": [
+        { "tick": 5, "action_type": "craft", "target": "spear", "outcome": "failed" },
+        { "tick": 20, "action_type": "talk", "target": "Alice", "outcome": "success" }
+      ]
+    }
+  ],
+  "conversations": [
+    {
+      "id": "conv-001",
+      "participants": ["Alice", "Bob"],
+      "turns": [
+        { "speaker": "Alice", "text": "Hello." },
+        { "speaker": "Bob", "text": "Greetings." }
+      ],
+      "end_reason": "natural",
+      "relationship_changes": [
+        {
+          "agent_a": "Alice",
+          "agent_b": "Bob",
+          "old_type": "stranger",
+          "new_type": "acquaintance",
+          "old_score": 0,
+          "new_score": 1
+        }
+      ]
+    }
+  ],
+  "agent_states": [
+    {
+      "name": "Alice",
+      "needs": { "Hunger": 3.0, "Thirst": 2.0, "composite_modifier": 1.1 }
+    },
+    {
+      "name": "Bob",
+      "needs": [
+        { "label": "Hunger", "value": 2.5, "max": 5 },
+        { "label": "Thirst", "value": 1.5, "max": 5 }
+      ]
+    }
+  ],
+  "journals": [
+    { "agent_name": "Alice", "text": "Found some berries today." }
+  ],
+  "memories": [
+    { "agent_name": "Alice", "content": "Met Bob." }
+  ],
+  "relationships": [
+    {
+      "agent_name": "Alice",
+      "target_name": "Bob",
+      "status": "acquaintance",
+      "impression_score": 1
+    }
+  ]
+}

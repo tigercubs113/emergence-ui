@@ -1,0 +1,16 @@
+{
+  "sim_day": 0,
+  "tick_range": [0, 99],
+  "stats": { "decisions_today": 1, "conversations_today": 0 },
+  "events": [
+    { "tick": 5, "action_type": "hunt", "target": "deer", "outcome": "success", "agent_name": "Cara" }
+  ],
+  "relationships": [
+    {
+      "agent_name": "Cara",
+      "target_name": "Dan",
+      "status": "rival",
+      "impression_score": -2
+    }
+  ]
+}

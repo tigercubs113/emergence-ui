@@ -1,0 +1,26 @@
+{
+  "total_ticks": 100,
+  "wall_clock_ms": 8000,
+  "config_snapshot": {
+    "seed": 99,
+    "clock": { "ticks_per_day": 100 }
+  },
+  "agents_initial": [
+    {
+      "id": "agent-cara",
+      "name": "Cara",
+      "skills": ["Hunting"],
+      "personality": "{\"traits\":{\"Bold\":7},\"backstory\":\"A bold hunter.\"}",
+      "health_pct": 100,
+      "is_alive": true
+    },
+    {
+      "id": "agent-dan",
+      "name": "Dan",
+      "skills": ["Building"],
+      "personality_summary": "A patient builder.",
+      "health_pct": 100,
+      "is_alive": true
+    }
+  ]
+}

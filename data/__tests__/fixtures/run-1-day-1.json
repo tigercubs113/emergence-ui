@@ -1,0 +1,19 @@
+{
+  "sim_day": 1,
+  "tick_range": [100, 199],
+  "stats": {
+    "decisions_today": 3,
+    "conversations_today": 1
+  },
+  "narrative": "Day 1 narrative.",
+  "events": [
+    { "tick": 110, "action_type": "forage", "target": "mushrooms", "outcome": "success", "agent_name": "Alice" },
+    { "tick": 150, "action_type": "rest", "target": "", "outcome": "success", "agent_name": "Bob" }
+  ],
+  "conversations": [],
+  "agent_states": [
+    { "name": "Alice", "needs": {} },
+    { "name": "Bob", "needs": {} }
+  ],
+  "journals": []
+}

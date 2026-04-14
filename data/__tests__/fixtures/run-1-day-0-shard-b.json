@@ -1,0 +1,32 @@
+{
+  "sim_day": 0,
+  "tick_range": { "start": 50, "end": 99 },
+  "stats": {
+    "decisions_today": 2,
+    "conversations_today": 0,
+    "crafts_attempted": 0,
+    "rest_events": 1
+  },
+  "actions_summary": [
+    {
+      "agent_name": "Alice",
+      "actions": [
+        { "tick": 60, "action_type": "drink", "target": "stream", "outcome": "success" }
+      ]
+    }
+  ],
+  "journals": [
+    { "agent_name": "Bob", "content": "Tried to craft a spear, failed." }
+  ],
+  "memories": [
+    { "agent_name": "Bob", "content": "Spear-making is harder than I thought." }
+  ],
+  "relationships": [
+    {
+      "agent_name": "Alice",
+      "target_name": "Bob",
+      "status": "acquaintance",
+      "impression_score": 2
+    }
+  ]
+}
