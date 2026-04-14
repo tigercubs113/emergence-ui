@@ -1,129 +1,113 @@
 ---
 status: BUILDER_DONE
-pi: EMU-2
+pi: EMU-3
 type: bugfix
 file_limit: 0
-build_spec: inline
-updated_by: builder
-updated_at: 2026-04-12T13:45:00Z
+build_spec: docs/superpowers/plans/2026-04-14-ui-bugs.md
+updated_by: wayland
+updated_at: 2026-04-14T15:45:00Z
 error: null
 ---
 
 ## Instructions
 
-Fix the three HIGH-priority data layer bugs in `data/json-loader.ts` found during code review.  These cause entire page sections to render empty.
+Execute EMU-3 UI bug sweep -- bundles BL-206 (agent search filter) + BL-207 (day prev/next) + BL-209 (json-loader test coverage).
 
-### BL-201: getDay() Activity Feed empty
+**Plan:** `docs/superpowers/plans/2026-04-14-ui-bugs.md`
 
-`getDay()` checks `shard.events` but export produces `shard.actions_summary[].actions[]`.  Flatten actions_summary into the events array the same way `getAgent()` already does (see lines ~237-252 for the pattern).
+Read only above the `<!-- BUILDER READS ABOVE THIS LINE ONLY -->` marker for the Task Index.  Dispatch subagents to Task Details below the marker by task number.
 
-In the `getDay()` shard loop, after the conversations block, add:
+### Goal
 
-```typescript
-if (shard.actions_summary) {
-  for (const agentSummary of shard.actions_summary) {
-    if (agentSummary?.actions) {
-      events.push(
-        ...agentSummary.actions.map((a: any) => ({
-          tick: a.tick,
-          action_type: a.action_type,
-          target: a.target ?? '',
-          outcome: a.outcome ?? '',
-          agent_name: agentSummary.agent_name,
-        }))
-      );
-    }
-  }
-} else if (shard.events) {
-  events.push(...shard.events);
-}
-```
+Close three isolated emergence-ui defects from the merge code review: decorative search input, broken prev/next on non-contiguous days, thin json-loader test coverage.
 
-Remove the existing `if (shard.events) events.push(...)` block since this replaces it.
+### Scope
 
-### BL-202: getDay() Need States empty
+4 tasks (3 fix + 1 closure).  All changes stay inside `D:/Clanker/emergence-ui/`.  No upstream (PE) changes required.
 
-Loader checks `shard.agent_states` but export writes `shard.agents`.  Also, `agents[].needs` is a flat `Record<string, number>` (e.g. `{"hunger": 3.4}`) not `{label, value, max}[]`.
+### Test tier decisions
 
-Replace the `if (shard.agent_states)` block with:
+- T1 (unit) + T2 (component/integration): required per task.
+- T3 (contract): not required.
+- T4 (smoke): not required.
 
-```typescript
-const agentStates = shard.agent_states ?? shard.agents;
-if (agentStates) {
-  for (const agent of agentStates) {
-    const rawNeeds = agent.needs ?? {};
-    const needsArray = Array.isArray(rawNeeds)
-      ? rawNeeds.map((n: any) => ({ label: n.label ?? n.name ?? '', value: n.value ?? 0, max: n.max ?? 5 }))
-      : Object.entries(rawNeeds).map(([label, value]) => ({ label, value: value as number, max: 5 }));
-    needStates.push({
-      agent_name: agent.name,
-      needs: filterInternalNeeds(needsArray),
-    });
-  }
-}
-```
+### Passing floor + failing set (BL-163)
 
-### BL-203: Relationships not populated from shards
+- **Framework:** Vitest (not Jest).
+- **Entry capture:** `npm test 2>&1 | tail -5` before Task 1 dispatch.
+- **Exit requirement:** passing count holds or improves; failing set must not grow.  If there's a pre-existing failing set, flag it in Results.
 
-`getRun()` reads `manifest.relationships` which doesn't exist.  Relationships live in each shard as `{agent_name, target_name, status, impression_score}`.
+### Commit prefix: EMU-3
 
-In `getRun()`, aggregate relationships from shard data instead of the manifest:
+Match EMU-2 commit style (fb23963).  emergence-ui does NOT use the PE ECHOIT framework line in commits.
 
-```typescript
-// After the dayMap loop, before the return
-const relationshipMap = new Map<string, any>();
-for (const df of dayFiles) {
-  if (df.relationships) {
-    for (const r of df.relationships) {
-      const key = [r.agent_name, r.target_name].sort().join('::');
-      relationshipMap.set(key, {
-        agent_a: r.agent_name,
-        agent_b: r.target_name,
-        type: r.status ?? r.type ?? 'acquaintance',
-        score: r.impression_score ?? r.score ?? 0,
-      });
-    }
-  }
-}
-```
+### Token reporting
 
-Then in the return object, replace `relationships: manifest.relationships ?? []` with `relationships: Array.from(relationshipMap.values())`.
+Every subagent returns `Tokens: [actual]` in summary.  Write `docs/emu3-token-report.md` with per-task estimated vs actual.  Total + delta % land in this handoff at BUILDER_DONE.
 
-### Test:
+### Path verification summary (planner recon)
 
-```bash
-npx vitest run
-```
+- `components/RunDetail.astro` L82: `<input type="text" placeholder="Search agents..." class="em-search" ...>` -- search target.
+- `components/DayDetail.astro` L17-18: arithmetic prev/next.  Gap: skipped days 404.
+- `data/json-loader.ts`: 330 lines.  `data/__tests__/json-loader.test.ts`: 36 lines, 1 test.
+- Existing components: ActivityFeed, AgentCard, AgentProfile, Attribution, ConversationBlock, DayDetail, Hub, NeedStates, RunCard, RunDetail.
+- Check `AgentCard.astro` for the agent-card root class name before wiring the search filter (search script needs it).
 
-Existing tests must pass.  Verify by checking the data structures manually:
+### Backlog closure -- planner handles
 
-```bash
-node -e "
-const fs = require('fs');
-const d = JSON.parse(fs.readFileSync('../echoit-site/src/data/emergence/runs/run-19/ticks-0-19.json','utf8'));
-console.log('Has actions_summary:', !!d.actions_summary);
-console.log('Has agents:', !!d.agents);
-console.log('Has relationships:', !!d.relationships);
-"
-```
+Builder does **not** touch `D:/Clanker/backlogs/project-emergence.md` (emergence-ui BLs live there per convention).  Builder does **not** create backlog files in emergence-ui repo.  Planner handles BL-206, BL-207, BL-209 status transitions + header counts on receipt of BUILDER_DONE.
 
-### Commit prefix: EMU-2
+### BLOCKED protocol
 
-When done, set BUILDER_DONE with list of changes made and any issues found.
+Set BUILDER_BLOCKED with question + options for:
+- `dayList` not easily derivable from existing data layer (architectural question).
+- AgentCard class names diverge unexpectedly and fix path unclear.
+- Test framework quirks (Vitest jsdom / Astro interop) that block a case.
+
+Small path/name ambiguities: one-line check, proceed.
 
 ## Results
 
-All 3 HIGH-priority bugs fixed in `data/json-loader.ts`.  14/14 tests pass.  Real data shape verified against `echoit-site/src/data/emergence/runs/run-19/ticks-0-19.json` -- confirms `actions_summary`, `agents`, and `relationships` fields all present.
+**All three tasks DONE.**  No BLOCKED, no deviations from the plan that changed scope.
 
-**Changes:**
-- BL-201: `getDay()` now flattens `shard.actions_summary[].actions[]` into events array (same pattern as `getAgent()`)
-- BL-202: `getDay()` now checks `shard.agents` in addition to `shard.agent_states`, and handles both `Record<string,number>` and `{label,value,max}[]` needs formats
-- BL-203: `getRun()` now aggregates relationships from shard data instead of reading nonexistent `manifest.relationships`
+### Commits (on master, ahead of origin by 4)
 
-## New Findings
+- `ab4bc7e` -- EMU-3: client-side filter for agent cast search input (Task 1, BL-206)
+- `b058871` -- EMU-3: prev/next from actual day list (Task 2, BL-207)
+- `76c4c56` -- EMU-3: expand json-loader test coverage to all exports (Task 3, BL-209)
+- (pending) EMU-3: token report + BUILDER_DONE
 
-No new issues found.
+### Passing floor + exit
 
-## Commits
+- Entry: 3 files / 14 tests passing.
+- Exit: 5 files / **59 tests passing**.  Net +45 tests.
+- No failing set at entry; none at exit.
 
-- `fb23963` EMU-9: fix: getDay() activity feed, need states, and relationship aggregation
+### Per-BL summary
+
+| BL | Task | Files touched | Tests added |
+|----|------|----|----|
+| BL-206 | Agent search filter | `components/RunDetail.astro`, `components/AgentCard.astro`, `utils/agent-search.ts` (new), `components/__tests__/RunDetail-search.test.ts` (new) | 8 |
+| BL-207 | DayDetail prev/next | `components/DayDetail.astro`, `utils/day-nav.ts` (new), `utils/__tests__/day-nav.test.ts` (new) | 12 |
+| BL-209 | json-loader coverage | `data/__tests__/json-loader.test.ts` (+540 lines), 7 new fixture files under `data/__tests__/fixtures/` | 24 |
+
+### BREAKING CHANGE -- follow-up required for planner to route
+
+**`DayDetail.astro` prop signature changed: `totalDays: number` -> `dayList: number[]`.**
+
+Host-site call sites need a one-line prop update before they can bump this submodule.  The Task 2 subagent initially edited the host sites directly; those edits were reverted to respect builder-isolation (emergence-ui builder does not commit to sibling repos).  Planner should route follow-up build specs to the two host builders:
+
+- **echoit-site** (`D:\Clanker\echoit-site\`) -- `src/pages/emergence/run/[n]/day/[d].astro` getStaticPaths + page template: replace `totalDays: detail.days.length` with `dayList: detail.days.map(d => d.sim_day).sort((a, b) => a - b)`, destructure `dayList` instead of `totalDays`, pass `dayList` to `<DayDetailComponent>`.
+- **drewconrad.us** (`D:\Clanker\drewconrad.us\`) -- `src/pages/project-emergence/run/[n]/day/[d].astro`: same pattern.  Single-line change, already vetted by the Task 2 subagent.
+
+### Minor finding -- not fixed per spec
+
+`data/json-loader.ts` `mapRun` uses `??` for `tick_count`, `agent_count`, etc.  If `runs.json` ever explicitly sets those to literal `0`, the outer `||` manifest fallback in `getRun` can't override.  Purely theoretical for realistic data; documented in the coverage tests via field omission rather than `0`.  Log to backlog if it matters.
+
+### Token totals
+
+Detail in `docs/emu3-token-report.md`.  Subagent self-report: ~60,500.  Harness total across all three task subagents: 156,914 tokens / 88 tool uses / 449s.
+
+### Backlog closure (planner)
+
+BL-206, BL-207, BL-209 -- closure gate met.  Planner to transition status + adjust header counts.
