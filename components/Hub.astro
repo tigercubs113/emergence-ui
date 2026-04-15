@@ -1,15 +1,27 @@
 ---
 // emergence-ui/components/Hub.astro
-import type { Run } from '../data/types';
+import type { DispatchSummary, Run } from '../data/types';
 import Attribution from './Attribution.astro';
 import RunCard from './RunCard.astro';
+import NowRunning from './NowRunning.astro';
 
+// EMU-4: Hub becomes the tier orchestrator.  `activeRuns` + `dashboard` feed
+// the Now Running tier (T1).  Legacy `runs` prop stays as an optional fallback
+// so host sites (drewconrad.us, echoit-site) keep rendering until they ship
+// the follow-up integration PI.
+//
+// T2 extends this with `endedRuns` + a Library tier component.  Keep Hub edits
+// minimal and additive so T2's merge stays clean.
 interface Props {
-  runs: Run[];
+  runs?: Run[];                             // legacy fallback: flat run list
+  activeRuns?: Run[];                       // EMU-4 T1: Now Running tier
+  dashboard?: DispatchSummary | null;       // EMU-4 T1: 20-tick dispatch summary
   basePath: string;
 }
 
-const { runs, basePath } = Astro.props;
+const { runs, activeRuns, dashboard, basePath } = Astro.props;
+const hasTieredProps = Array.isArray(activeRuns);
+const legacyRuns = Array.isArray(runs) ? runs : [];
 ---
 <div class="em-container">
   <!-- Hero -->
@@ -47,9 +59,18 @@ const { runs, basePath } = Astro.props;
     </div>
   </section>
 
-  <!-- Run listing -->
-  <section class="em-section">
-    <div class="em-h2">Simulation Runs</div>
-    {runs.map(run => <RunCard run={run} basePath={basePath} />)}
-  </section>
+  <!-- Showcase: Phase 2 stub -->
+  <!-- TODO(EMU-4 Phase 2): pinned featured.json renders above Now Running here. -->
+
+  {hasTieredProps && (
+    <NowRunning activeRuns={activeRuns!} dashboard={dashboard ?? null} basePath={basePath} />
+  )}
+
+  <!-- Run listing (legacy flat render; T2 replaces with Library tier) -->
+  {!hasTieredProps && legacyRuns.length > 0 && (
+    <section class="em-section">
+      <div class="em-h2">Simulation Runs</div>
+      {legacyRuns.map(run => <RunCard run={run} basePath={basePath} />)}
+    </section>
+  )}
 </div>

@@ -1,0 +1,89 @@
+---
+// emergence-ui/components/NowRunning.astro
+//
+// "Now Running" tier of the DC-5 editorial pipeline (EMU-4 T1).
+// Renders above Library in Hub.astro.  Filters runs where `ended_at IS NULL`
+// (caller passes `activeRuns` already filtered via loader.listActiveRuns()).
+// Shows a featured RunCard, a 20-tick dispatch summary, and the per-agent
+// AgentDashboard for the active run.
+//
+// Branching logic (blank / no-dashboard / dashboard) lives in
+// utils/now-running.ts so it stays unit-testable without jsdom.
+
+import type { DispatchSummary, Run } from '../data/types';
+import RunCard from './RunCard.astro';
+import AgentDashboard from './AgentDashboard.astro';
+import {
+  deriveNowRunningState,
+  formatRecentActionLine,
+  formatWindowHeader,
+  normalizeRecentActions,
+} from '../utils/now-running';
+
+interface Props {
+  activeRuns: Run[];
+  dashboard: DispatchSummary | null;
+  basePath: string;
+}
+
+const { activeRuns, dashboard, basePath } = Astro.props;
+const state = deriveNowRunningState(activeRuns, dashboard);
+const recentActions =
+  state.kind === 'dashboard' ? normalizeRecentActions(state.dashboard.last_actions) : [];
+---
+<section class="em-section" data-testid="now-running">
+  <div class="em-h2">Now Running</div>
+
+  {state.kind === 'blank' && (
+    <div class="em-card" data-testid="now-running-blank">
+      <div class="em-subtitle">No active run.  Drew is between simulations.</div>
+    </div>
+  )}
+
+  {state.kind === 'no-dashboard' && (
+    <div data-testid="now-running-no-dashboard">
+      {state.runs.map(run => <RunCard run={run} basePath={basePath} />)}
+      <div class="em-subtitle" style="margin-top: 8px;" data-testid="now-running-dashboard-pending">
+        Dashboard data not yet available.
+      </div>
+    </div>
+  )}
+
+  {state.kind === 'dashboard' && (
+    <div data-testid="now-running-dashboard">
+      {state.runs.map(run => <RunCard run={run} basePath={basePath} />)}
+
+      <div class="em-card" style="margin-top: 12px;" data-testid="dispatch-summary">
+        <div class="em-h3">
+          Last 20 ticks ({formatWindowHeader(state.dashboard.window_start_tick, state.dashboard.window_end_tick)})
+        </div>
+
+        <div style="display: flex; gap: 16px; margin-top: 12px;">
+          <div class="em-stat">
+            <div class="em-label">Conversations</div>
+            <div class="em-h3">{state.dashboard.conversation_count}</div>
+          </div>
+          <div class="em-stat">
+            <div class="em-label">Actions</div>
+            <div class="em-h3">{state.dashboard.action_count}</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <div class="em-label" style="margin-bottom: 6px;">Recent actions</div>
+          {recentActions.length === 0 && (
+            <div class="em-subtitle" data-testid="recent-actions-empty">No recent actions yet.</div>
+          )}
+          {recentActions.map(a => (
+            <div class="em-feed-item">{formatRecentActionLine(a)}</div>
+          ))}
+        </div>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <div class="em-label" style="margin-bottom: 8px;">Agent status</div>
+        <AgentDashboard rows={state.dashboard.agent_dashboard} />
+      </div>
+    </div>
+  )}
+</section>
