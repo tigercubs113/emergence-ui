@@ -4,23 +4,28 @@ import type { DispatchSummary, Run } from '../data/types';
 import Attribution from './Attribution.astro';
 import RunCard from './RunCard.astro';
 import NowRunning from './NowRunning.astro';
+import Library from './Library.astro';
+import { shouldUseTieredLayout } from '../utils/library';
 
-// EMU-4: Hub becomes the tier orchestrator.  `activeRuns` + `dashboard` feed
-// the Now Running tier (T1).  Legacy `runs` prop stays as an optional fallback
-// so host sites (drewconrad.us, echoit-site) keep rendering until they ship
-// the follow-up integration PI.
+// EMU-4: Hub is the tier orchestrator.  `activeRuns` + `dashboard` feed the
+// Now Running tier (T1); `endedRuns` feeds the Library tier (T2).  Legacy
+// `runs` prop stays as an optional fallback so host sites (drewconrad.us,
+// echoit-site) keep rendering until they ship the follow-up integration PI.
 //
-// T2 extends this with `endedRuns` + a Library tier component.  Keep Hub edits
-// minimal and additive so T2's merge stays clean.
+// Tier ordering per DC-5 plan: Showcase stub (HTML comment, Phase 2) ->
+// NowRunning -> Library.
 interface Props {
   runs?: Run[];                             // legacy fallback: flat run list
   activeRuns?: Run[];                       // EMU-4 T1: Now Running tier
+  endedRuns?: Run[];                        // EMU-4 T2: Library tier
   dashboard?: DispatchSummary | null;       // EMU-4 T1: 20-tick dispatch summary
   basePath: string;
 }
 
-const { runs, activeRuns, dashboard, basePath } = Astro.props;
-const hasTieredProps = Array.isArray(activeRuns);
+const { runs, activeRuns, endedRuns, dashboard, basePath } = Astro.props;
+const hasTieredProps = shouldUseTieredLayout(activeRuns, endedRuns);
+const tieredActiveRuns = Array.isArray(activeRuns) ? activeRuns : [];
+const tieredEndedRuns = Array.isArray(endedRuns) ? endedRuns : [];
 const legacyRuns = Array.isArray(runs) ? runs : [];
 ---
 <div class="em-container">
@@ -63,12 +68,15 @@ const legacyRuns = Array.isArray(runs) ? runs : [];
   <!-- TODO(EMU-4 Phase 2): pinned featured.json renders above Now Running here. -->
 
   {hasTieredProps && (
-    <NowRunning activeRuns={activeRuns!} dashboard={dashboard ?? null} basePath={basePath} />
+    <>
+      <NowRunning activeRuns={tieredActiveRuns} dashboard={dashboard ?? null} basePath={basePath} />
+      <Library endedRuns={tieredEndedRuns} basePath={basePath} />
+    </>
   )}
 
-  <!-- Run listing (legacy flat render; T2 replaces with Library tier) -->
+  <!-- Legacy flat render: only used when host sites still pass `runs` without tiered props. -->
   {!hasTieredProps && legacyRuns.length > 0 && (
-    <section class="em-section">
+    <section class="em-section" data-testid="legacy-runs">
       <div class="em-h2">Simulation Runs</div>
       {legacyRuns.map(run => <RunCard run={run} basePath={basePath} />)}
     </section>

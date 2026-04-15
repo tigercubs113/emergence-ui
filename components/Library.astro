@@ -1,0 +1,40 @@
+---
+// emergence-ui/components/Library.astro
+//
+// "Library" tier of the DC-5 editorial pipeline (EMU-4 T2).
+// Renders below NowRunning in Hub.astro.  Filters runs where
+// `ended_at IS NOT NULL` (caller passes `endedRuns` already filtered via
+// loader.listEndedRuns()) and maps them onto the existing RunCard grid.
+//
+// Branching logic (empty / list) and subtitle formatting live in
+// utils/library.ts so they stay unit-testable without jsdom.
+
+import type { Run } from '../data/types';
+import RunCard from './RunCard.astro';
+import { deriveLibraryState, formatLibrarySubtitle } from '../utils/library';
+
+interface Props {
+  endedRuns: Run[];
+  basePath: string;
+}
+
+const { endedRuns, basePath } = Astro.props;
+const state = deriveLibraryState(endedRuns);
+const count = state.kind === 'list' ? state.runs.length : 0;
+---
+<section class="em-section" data-testid="library">
+  <div class="em-h2">Library</div>
+  <div class="em-subtitle" data-testid="library-subtitle">{formatLibrarySubtitle(count)}</div>
+
+  {state.kind === 'empty' && (
+    <div class="em-card" style="margin-top: 12px;" data-testid="library-empty">
+      <div class="em-subtitle">No ended runs yet.</div>
+    </div>
+  )}
+
+  {state.kind === 'list' && (
+    <div style="margin-top: 12px;" data-testid="library-list">
+      {state.runs.map(run => <RunCard run={run} basePath={basePath} />)}
+    </div>
+  )}
+</section>
