@@ -1,0 +1,45 @@
+{
+  "sim_day": 1,
+  "tick_range": [100, 140],
+  "stats": {
+    "decisions_today": 3,
+    "conversations_today": 1
+  },
+  "actions_summary": [
+    {
+      "agent_name": "Eve",
+      "actions": [
+        { "tick": 110, "action_type": "scout", "target": "ridge", "outcome": "success" },
+        { "tick": 138, "action_type": "forage", "target": "berries", "outcome": "success" }
+      ]
+    },
+    {
+      "agent_name": "Finn",
+      "actions": [
+        { "tick": 125, "action_type": "fish", "target": "river", "outcome": "success" }
+      ]
+    }
+  ],
+  "conversations": [
+    {
+      "id": "conv-mid",
+      "participants": ["Eve", "Finn"],
+      "turns": [
+        { "speaker": "Finn", "text": "Lunch?" }
+      ],
+      "end_reason": "natural"
+    }
+  ],
+  "agent_states": [
+    {
+      "name": "Eve",
+      "needs": { "Hunger": 3.0, "Thirst": 3.0, "Rest": 3.5 },
+      "location": { "x": 8, "y": 12 }
+    },
+    {
+      "name": "Finn",
+      "needs": { "Hunger": 3.5, "Thirst": 4.0, "Rest": 4.0 },
+      "location": { "x": 2, "y": 1 }
+    }
+  ]
+}

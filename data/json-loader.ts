@@ -11,6 +11,8 @@ import type {
   AgentProfile,
   Relationship,
   ModelConfig,
+  DispatchSummary,
+  AgentDashboardRow,
 } from './types.js';
 import {
   normalizeTickRange,
@@ -29,6 +31,10 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
   const { runsJson, runDataDir } = config;
 
   function mapRun(raw: any): Run {
+    // ended_at: preserve null vs undefined distinction.  Legacy fixtures omit the field
+    // entirely (undefined), which listActiveRuns treats as active.  Supabase export
+    // sets the column to null while running and an ISO string when ended.
+    const endedAt = raw.ended_at === undefined ? undefined : raw.ended_at;
     return {
       id: raw.run_id,
       run_number: raw.run_number,
@@ -43,6 +49,7 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
       model_config: raw.model_config ?? { routes: {}, fallback: { provider: '', model: '' } },
       summary: raw.summary ?? '',
       created_at: raw.created_at ?? '',
+      ended_at: endedAt,
     };
   }
 
@@ -325,6 +332,146 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
     async getRelationships(runId: string): Promise<Relationship[]> {
       const run = await this.getRun(runId);
       return run.relationships;
+    },
+
+    async listActiveRuns(): Promise<Run[]> {
+      // Active = ended_at is explicitly null OR absent.  Matches DC-5 Now Running tier.
+      const all = await this.listRuns();
+      return all.filter(r => r.ended_at === null || r.ended_at === undefined);
+    },
+
+    async listEndedRuns(): Promise<Run[]> {
+      // Ended = ended_at is a non-empty string (ISO timestamp).  Matches Library tier.
+      const all = await this.listRuns();
+      return all.filter(r => typeof r.ended_at === 'string' && r.ended_at.length > 0);
+    },
+
+    async getActiveRunDashboard(runId: string): Promise<DispatchSummary | null> {
+      const rawRun = (runsJson.runs ?? []).find((r: any) => r.run_id === runId);
+      if (!rawRun) throw new Error(`Run not found: ${runId}`);
+
+      // Gather all day shards for this run.
+      const dayKeys = Object.keys(runDataDir).filter(k =>
+        k.includes(`run-${rawRun.run_number}`) && !k.includes('manifest')
+      );
+      const shards = dayKeys.map(k => runDataDir[k]).filter(Boolean);
+      if (shards.length === 0) return null;
+
+      // Normalize each shard's tick_range upfront.
+      const normShards = shards.map((s: any) => ({
+        raw: s,
+        tick_range: normalizeTickRange(s.tick_range),
+      }));
+
+      // Highest tick across all shards defines the window end.
+      const highestTick = normShards.reduce(
+        (max, s) => Math.max(max, s.tick_range[1]),
+        -Infinity
+      );
+      if (!Number.isFinite(highestTick)) return null;
+
+      const windowEnd = highestTick;
+      const windowStart = Math.max(0, highestTick - 20);
+
+      // A shard overlaps the window if its tick_range intersects [windowStart, windowEnd].
+      const inWindowShards = normShards.filter(
+        s => s.tick_range[1] >= windowStart && s.tick_range[0] <= windowEnd
+      );
+
+      // Sum conversation counts across in-window shards.  Use stats.conversations_today
+      // when present (matches getDay's shard merge rules).
+      let conversationCount = 0;
+      for (const s of inWindowShards) {
+        const stats = s.raw.stats ?? {};
+        conversationCount += stats.conversations_today ?? stats.conversations ?? 0;
+      }
+
+      // Walk every shard's actions_summary and keep actions whose tick is inside the window.
+      // Dedupe last_actions by agent_name, preferring the highest tick.
+      let actionCount = 0;
+      const latestByAgent = new Map<string, { tick: number; action_type: string; target: string | null }>();
+      for (const s of normShards) {
+        const summary = s.raw.actions_summary;
+        if (!Array.isArray(summary)) continue;
+        for (const agentSummary of summary) {
+          const agentName = agentSummary?.agent_name;
+          if (!agentName || !Array.isArray(agentSummary.actions)) continue;
+          for (const action of agentSummary.actions) {
+            if (typeof action.tick !== 'number') continue;
+            if (action.tick < windowStart || action.tick > windowEnd) continue;
+            actionCount += 1;
+            const prior = latestByAgent.get(agentName);
+            if (!prior || action.tick > prior.tick) {
+              latestByAgent.set(agentName, {
+                tick: action.tick,
+                action_type: action.action_type ?? '',
+                target: action.target ?? null,
+              });
+            }
+          }
+        }
+      }
+
+      const lastActions = Array.from(latestByAgent.entries()).map(([agent_name, a]) => ({
+        agent_name,
+        tick: a.tick,
+        action_type: a.action_type,
+        target: a.target,
+      }));
+
+      // Latest shard (highest tick_range[1]) supplies the current agent_states snapshot.
+      const latestShard = normShards.reduce((best, s) =>
+        s.tick_range[1] > best.tick_range[1] ? s : best
+      );
+      const latestAgentStates = latestShard.raw.agent_states ?? latestShard.raw.agents ?? [];
+
+      const agentDashboard: AgentDashboardRow[] = [];
+      for (const agent of latestAgentStates) {
+        if (!agent?.name) continue;
+        const rawNeeds = agent.needs ?? {};
+        // Normalize needs into a lookup by label.
+        const needLookup: Record<string, number> = {};
+        if (Array.isArray(rawNeeds)) {
+          for (const n of rawNeeds) {
+            if (n?.label) needLookup[String(n.label).toLowerCase()] = Number(n.value ?? 0);
+          }
+        } else if (rawNeeds && typeof rawNeeds === 'object') {
+          for (const [label, value] of Object.entries(rawNeeds)) {
+            needLookup[String(label).toLowerCase()] = Number(value ?? 0);
+          }
+        }
+
+        const rawLoc = agent.location;
+        const location =
+          rawLoc && typeof rawLoc.x === 'number' && typeof rawLoc.y === 'number'
+            ? { x: rawLoc.x, y: rawLoc.y }
+            : null;
+
+        const latest = latestByAgent.get(agent.name);
+        const latestAction = latest
+          ? { tick: latest.tick, action_type: latest.action_type, target: latest.target }
+          : null;
+
+        agentDashboard.push({
+          agent_name: agent.name,
+          hunger: needLookup['hunger'] ?? 0,
+          thirst: needLookup['thirst'] ?? 0,
+          rest: needLookup['rest'] ?? 0,
+          location,
+          latest_action: latestAction,
+        });
+      }
+
+      return {
+        run_id: rawRun.run_id,
+        run_number: rawRun.run_number,
+        window_start_tick: windowStart,
+        window_end_tick: windowEnd,
+        conversation_count: conversationCount,
+        action_count: actionCount,
+        last_actions: lastActions,
+        agent_dashboard: agentDashboard,
+      };
     },
   };
 }

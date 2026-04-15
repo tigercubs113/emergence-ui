@@ -12,7 +12,8 @@
       "wall_clock_ms": 12000,
       "sim_days": 2,
       "summary": "Fixture run for json-loader tests.",
-      "created_at": "2026-04-14T00:00:00Z"
+      "created_at": "2026-04-14T00:00:00Z",
+      "ended_at": "2026-04-14T06:00:00Z"
     },
     {
       "run_id": "test-run-002",
@@ -26,7 +27,23 @@
       "wall_clock_ms": 8000,
       "sim_days": 1,
       "summary": "Legacy relationship shape run.",
-      "created_at": "2026-04-13T00:00:00Z"
+      "created_at": "2026-04-13T00:00:00Z",
+      "ended_at": "2026-04-13T03:00:00Z"
+    },
+    {
+      "run_id": "test-run-003",
+      "run_number": 3,
+      "name": "Active Run",
+      "status": "running",
+      "tick_count": 155,
+      "agent_count": 2,
+      "agents_alive": 2,
+      "seed": 7,
+      "wall_clock_ms": 9000,
+      "sim_days": 1.55,
+      "summary": "Active run for dashboard tests.",
+      "created_at": "2026-04-15T12:00:00Z",
+      "ended_at": null
     }
   ]
 }

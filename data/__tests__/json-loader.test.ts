@@ -9,6 +9,10 @@ import run1Day0ShardB from './fixtures/run-1-day-0-shard-b.json';
 import run1Day1 from './fixtures/run-1-day-1.json';
 import run2Manifest from './fixtures/run-2-manifest.json';
 import run2Day0 from './fixtures/run-2-day-0.json';
+import run3Manifest from './fixtures/run-3-active-manifest.json';
+import run3Day0 from './fixtures/run-3-active-day-0.json';
+import run3Day1ShardA from './fixtures/run-3-active-day-1-shard-a.json';
+import run3Day1ShardB from './fixtures/run-3-active-day-1-shard-b.json';
 
 // Standard runDataDir keyed by paths the loader would receive from import.meta.glob.
 const runDataDir = {
@@ -18,6 +22,10 @@ const runDataDir = {
   'run-1/day-1.json': run1Day1,
   'run-2/manifest.json': run2Manifest,
   'run-2/day-0.json': run2Day0,
+  'run-3/manifest.json': run3Manifest,
+  'run-3/day-0.json': run3Day0,
+  'run-3/day-1-shard-a.json': run3Day1ShardA,
+  'run-3/day-1-shard-b.json': run3Day1ShardB,
 };
 
 function makeLoader(overrides: Partial<{ runsJson: any; runDataDir: Record<string, any> }> = {}) {
@@ -61,9 +69,10 @@ describe('createJsonLoader', () => {
     it('sorts runs by run_number descending', async () => {
       const loader = makeLoader();
       const runs = await loader.listRuns();
-      expect(runs).toHaveLength(2);
-      expect(runs[0].run_number).toBe(2);
-      expect(runs[1].run_number).toBe(1);
+      expect(runs).toHaveLength(3);
+      expect(runs[0].run_number).toBe(3);
+      expect(runs[1].run_number).toBe(2);
+      expect(runs[2].run_number).toBe(1);
     });
 
     it('returns empty array when runsJson has no runs', async () => {

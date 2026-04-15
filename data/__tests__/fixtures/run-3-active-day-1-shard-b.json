@@ -1,0 +1,49 @@
+{
+  "sim_day": 1,
+  "tick_range": [141, 155],
+  "stats": {
+    "decisions_today": 3,
+    "conversations_today": 2
+  },
+  "actions_summary": [
+    {
+      "agent_name": "Eve",
+      "actions": [
+        { "tick": 145, "action_type": "rest", "target": "", "outcome": "success" },
+        { "tick": 152, "action_type": "drink", "target": "stream", "outcome": "success" }
+      ]
+    },
+    {
+      "agent_name": "Finn",
+      "actions": [
+        { "tick": 150, "action_type": "eat", "target": "fish", "outcome": "success" }
+      ]
+    }
+  ],
+  "conversations": [
+    {
+      "id": "conv-1",
+      "participants": ["Eve", "Finn"],
+      "turns": [{ "speaker": "Eve", "text": "Water looks good." }],
+      "end_reason": "natural"
+    },
+    {
+      "id": "conv-2",
+      "participants": ["Eve", "Finn"],
+      "turns": [{ "speaker": "Finn", "text": "Caught dinner." }],
+      "end_reason": "natural"
+    }
+  ],
+  "agent_states": [
+    {
+      "name": "Eve",
+      "needs": { "Hunger": 2.0, "Thirst": 0.5, "Rest": 2.0 },
+      "location": { "x": 9, "y": 14 }
+    },
+    {
+      "name": "Finn",
+      "needs": { "Hunger": 1.0, "Thirst": 3.0, "Rest": 3.5 },
+      "location": { "x": 3, "y": 2 }
+    }
+  ]
+}

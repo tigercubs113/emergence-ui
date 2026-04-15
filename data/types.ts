@@ -15,6 +15,32 @@ export interface Run {
   model_config: ModelConfig;
   summary: string;      // One-line description
   created_at: string;   // ISO timestamp
+  ended_at?: string | null;  // ISO timestamp when run ended; null/undefined means still active
+}
+
+export interface AgentDashboardRow {
+  agent_name: string;
+  hunger: number;
+  thirst: number;
+  rest: number;
+  location: { x: number; y: number } | null;
+  latest_action: { tick: number; action_type: string; target: string | null } | null;
+}
+
+export interface DispatchSummary {
+  run_id: string;
+  run_number: number;
+  window_start_tick: number;
+  window_end_tick: number;
+  conversation_count: number;
+  action_count: number;
+  last_actions: {
+    agent_name: string;
+    tick: number;
+    action_type: string;
+    target: string | null;
+  }[];
+  agent_dashboard: AgentDashboardRow[];
 }
 
 export interface ModelConfig {
