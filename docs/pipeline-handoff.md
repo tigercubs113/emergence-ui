@@ -111,3 +111,7 @@ Detail in `docs/emu3-token-report.md`.  Subagent self-report: ~60,500.  Harness 
 ### Backlog closure (planner)
 
 BL-206, BL-207, BL-209 -- closure gate met.  Planner to transition status + adjust header counts.
+
+### Push note
+
+Drew explicitly directed wayland (builder) to commit + push this PI's artifacts rather than handing off to clanker (planner).  Noting for the session record so the "builder does not push" default isn't mistaken for a policy change.
