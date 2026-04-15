@@ -11,8 +11,10 @@ interface Props {
 const { run, basePath } = Astro.props;
 const href = `${basePath}/run/${run.run_number}/`;
 const badgeClass = `em-badge em-badge--${run.status}`;
+// BL-228: paused runs get a complementary card treatment beside the badge.
+const cardClass = run.status === 'paused' ? 'em-card em-card--paused' : 'em-card';
 ---
-<a href={href} class="em-card" style="display: block; text-decoration: none; color: inherit; margin-bottom: 12px;">
+<a href={href} class={cardClass} style="display: block; text-decoration: none; color: inherit; margin-bottom: 12px;">
   <div style="display: flex; justify-content: space-between; align-items: center;">
     <div>
       <div class="em-h3">{run.name}</div>

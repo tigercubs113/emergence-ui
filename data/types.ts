@@ -84,6 +84,7 @@ export interface DayDetail {
   events: ActivityEvent[];
   conversations: Conversation[];
   need_states: AgentNeedSnapshot[];
+  narrative?: string | null;
 }
 
 export interface ActivityEvent {

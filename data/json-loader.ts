@@ -202,8 +202,11 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
       let tickStart = Infinity;
       let tickEnd = -Infinity;
       let stats = { decisions: 0, conversations: 0, crafts_attempted: 0, rest_events: 0 };
+      let narrative: string | null = null;
 
       for (const shard of shards) {
+        // First non-null narrative wins (matches getRun dayMap merge pattern).
+        if (!narrative && shard.narrative) narrative = shard.narrative;
         const tr = normalizeTickRange(shard.tick_range);
         tickStart = Math.min(tickStart, tr[0]);
         tickEnd = Math.max(tickEnd, tr[1]);
@@ -252,6 +255,7 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
         events: events.sort((a, b) => a.tick - b.tick),
         conversations,
         need_states: needStates,
+        narrative,
       };
     },
 

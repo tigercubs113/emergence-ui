@@ -39,6 +39,12 @@
 }
 .em-card:hover { border-color: var(--em-link); }
 .em-card a { text-decoration: none; color: inherit; display: block; }
+/* Paused-run card treatment (BL-228): amber left border signals a run that
+   exists but is not currently advancing.  Pairs with .em-badge--paused. */
+.em-card--paused {
+  border-color: #c8b450;
+  border-left-width: 3px;
+}
 
 /* Badge */
 .em-badge {

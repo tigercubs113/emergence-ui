@@ -49,6 +49,14 @@ const { prev: prevDay, next: nextDay } = derivePrevNext(day.sim_day, dayList);
     </div>
   </section>
 
+  <!-- Narrative (editorial, optional) -->
+  {day.narrative && (
+    <section class="em-section">
+      <div class="em-h2">Narrative</div>
+      <div class="em-subtitle" style="line-height: 1.7;">{day.narrative}</div>
+    </section>
+  )}
+
   <!-- Activity Feed -->
   <section class="em-section">
     <div class="em-h2">Activity Feed</div>
