@@ -1,117 +1,66 @@
 ---
 status: BUILDER_DONE
-pi: EMU-3
-type: bugfix
+pi: EMU-4
+type: feature
 file_limit: 0
-build_spec: docs/superpowers/plans/2026-04-14-ui-bugs.md
+build_spec: docs/superpowers/plans/2026-04-15-reporting-tiers.md
 updated_by: wayland
-updated_at: 2026-04-14T15:45:00Z
+updated_at: 2026-04-15T18:00:00Z
 error: null
 ---
 
 ## Instructions
 
-Execute EMU-3 UI bug sweep -- bundles BL-206 (agent search filter) + BL-207 (day prev/next) + BL-209 (json-loader test coverage).
+Execute EMU-4 Reporting Tiers + Per-Agent Dashboard.  Build spec at `docs/superpowers/plans/2026-04-15-reporting-tiers.md`.
 
-**Plan:** `docs/superpowers/plans/2026-04-14-ui-bugs.md`
+Read only above the `<!-- BUILDER READS ABOVE THIS LINE ONLY -->` marker for Task Index.  Dispatch subagents to Task Details by task number.
 
-Read only above the `<!-- BUILDER READS ABOVE THIS LINE ONLY -->` marker for the Task Index.  Dispatch subagents to Task Details below the marker by task number.
+**Context from planner:** Implements Now Running + Library tiers of DC-5 editorial pipeline, per-agent dashboard (hunger/thirst/rest/location/last_action row per agent), DayDetail `narrative` field render, BL-228 paused-card styling.  Prep for Project Emergence overnight run tonight — Now Running tier must ship so live data is visible during the run.
 
-### Goal
+**Task parallelism:** Task 5 (loader + types) runs first.  Tasks 1, 2, 3, 4 can then parallelize.  T1 + T2 both touch Hub.astro — merge serially after parallel work.
 
-Close three isolated emergence-ui defects from the merge code review: decorative search input, broken prev/next on non-contiguous days, thin json-loader test coverage.
+**Upstream coupling:** Couples to PIP-56 BL-127 end-run CLI on the PE side, but EMU-4 codes against `ended_at IS NOT NULL` filter with fixtures covering both states — not blocked by PIP-56.
 
-### Scope
-
-4 tasks (3 fix + 1 closure).  All changes stay inside `D:/Clanker/emergence-ui/`.  No upstream (PE) changes required.
-
-### Test tier decisions
-
-- T1 (unit) + T2 (component/integration): required per task.
-- T3 (contract): not required.
-- T4 (smoke): not required.
-
-### Passing floor + failing set (BL-163)
-
-- **Framework:** Vitest (not Jest).
-- **Entry capture:** `npm test 2>&1 | tail -5` before Task 1 dispatch.
-- **Exit requirement:** passing count holds or improves; failing set must not grow.  If there's a pre-existing failing set, flag it in Results.
-
-### Commit prefix: EMU-3
-
-Match EMU-2 commit style (fb23963).  emergence-ui does NOT use the PE ECHOIT framework line in commits.
-
-### Token reporting
-
-Every subagent returns `Tokens: [actual]` in summary.  Write `docs/emu3-token-report.md` with per-task estimated vs actual.  Total + delta % land in this handoff at BUILDER_DONE.
-
-### Path verification summary (planner recon)
-
-- `components/RunDetail.astro` L82: `<input type="text" placeholder="Search agents..." class="em-search" ...>` -- search target.
-- `components/DayDetail.astro` L17-18: arithmetic prev/next.  Gap: skipped days 404.
-- `data/json-loader.ts`: 330 lines.  `data/__tests__/json-loader.test.ts`: 36 lines, 1 test.
-- Existing components: ActivityFeed, AgentCard, AgentProfile, Attribution, ConversationBlock, DayDetail, Hub, NeedStates, RunCard, RunDetail.
-- Check `AgentCard.astro` for the agent-card root class name before wiring the search filter (search script needs it).
-
-### Backlog closure -- planner handles
-
-Builder does **not** touch `D:/Clanker/backlogs/project-emergence.md` (emergence-ui BLs live there per convention).  Builder does **not** create backlog files in emergence-ui repo.  Planner handles BL-206, BL-207, BL-209 status transitions + header counts on receipt of BUILDER_DONE.
-
-### BLOCKED protocol
-
-Set BUILDER_BLOCKED with question + options for:
-- `dayList` not easily derivable from existing data layer (architectural question).
-- AgentCard class names diverge unexpectedly and fix path unclear.
-- Test framework quirks (Vitest jsdom / Astro interop) that block a case.
-
-Small path/name ambiguities: one-line check, proceed.
+**Process reminder:** OPERATIONS §4 — populate Results / Commits / Deviations / Assumptions / New findings before flipping to BUILDER_DONE.
 
 ## Results
 
-**All three tasks DONE.**  No BLOCKED, no deviations from the plan that changed scope.
+All 5 tasks shipped.  Suite grew from 5 files / 59 tests to **9 files / 118 tests** (+4 files, +59 tests).  Exit target was 6+ files / 70+ tests — exceeded on both dimensions.  Zero regressions, zero merge conflicts.
 
-### Commits (on master, ahead of origin by 4)
+- **Now Running tier** live — filters `ended_at IS NULL`, embeds 20-tick dispatch card (conversation count + action count) and AgentDashboard (per-agent hunger/thirst/rest/location/last_action).  Blank state when no active run.
+- **Library tier** live — filters `ended_at IS NOT NULL`, reuses RunCard grid.
+- **AgentDashboard** standalone component with pure-helper unit tests covering row derivation, critical-need flagging, location + action formatting.
+- **DayDetail narrative** renders above ActivityFeed when `day.narrative` present; null/absent collapses the section.
+- **BL-228 closed** — `.em-card--paused` amber border + badge treatment shipped; RunCard conditionally applies class when `run.status === 'paused'`.
+- **Loader surface** extended with `listActiveRuns()`, `listEndedRuns()`, `getActiveRunDashboard(runId)` on the DataLoader interface and json-loader implementation, with 16 new unit tests covering active/ended filters and 20-tick window aggregation across shard boundaries.
 
-- `ab4bc7e` -- EMU-3: client-side filter for agent cast search input (Task 1, BL-206)
-- `b058871` -- EMU-3: prev/next from actual day list (Task 2, BL-207)
-- `76c4c56` -- EMU-3: expand json-loader test coverage to all exports (Task 3, BL-209)
-- (pending) EMU-3: token report + BUILDER_DONE
+## Commits
 
-### Passing floor + exit
+| SHA | Task | Subject |
+|-----|------|---------|
+| `3cd7caa` | T5 | EMU-4: T5 loader additions (active/ended filters, 20-tick dashboard) |
+| `59025d1` | T3 | EMU-4: T3 AgentDashboard per-agent row component |
+| `e690e34` | T4 | EMU-4: T4 DayDetail narrative + paused RunCard styling |
+| `d70fbe1` | T1 | EMU-4: T1 NowRunning tier + Hub wiring |
+| `98f5879` | T2 | EMU-4: T2 Library tier + Hub wiring |
 
-- Entry: 3 files / 14 tests passing.
-- Exit: 5 files / **59 tests passing**.  Net +45 tests.
-- No failing set at entry; none at exit.
+Plus a follow-up commit for `docs/emu4-token-report.md` and this handoff fill.
 
-### Per-BL summary
+## Deviations from spec
 
-| BL | Task | Files touched | Tests added |
-|----|------|----|----|
-| BL-206 | Agent search filter | `components/RunDetail.astro`, `components/AgentCard.astro`, `utils/agent-search.ts` (new), `components/__tests__/RunDetail-search.test.ts` (new) | 8 |
-| BL-207 | DayDetail prev/next | `components/DayDetail.astro`, `utils/day-nav.ts` (new), `utils/__tests__/day-nav.test.ts` (new) | 12 |
-| BL-209 | json-loader coverage | `data/__tests__/json-loader.test.ts` (+540 lines), 7 new fixture files under `data/__tests__/fixtures/` | 24 |
+- **T4 loader thread.** Plan put narrative rendering in Task 4 but required the loader to expose it; T4 necessarily touched `data/types.ts` (added optional `narrative` on DayDetail) and `data/json-loader.ts` (getDay merges narrative first-non-null-wins).  No deviation from intent, only from the file list.
+- **Hub tiered vs legacy layout.** T1 gated the tiered render on an `activeRuns` prop so host sites not yet passing active/ended slices keep the legacy flat render.  T2 extended the gate to `shouldUseTieredLayout` (either activeRuns or endedRuns).  Plan implied a hard cutover; the additive gate lets consumers opt in incrementally.
 
-### BREAKING CHANGE -- follow-up required for planner to route
+## Assumptions made
 
-**`DayDetail.astro` prop signature changed: `totalDays: number` -> `dayList: number[]`.**
+- **20-tick window.** Inclusive `[max(0, highest_tick - 20), highest_tick]`.  `conversation_count` = sum of `shard.stats.conversations_today` across shards whose `tick_range` intersects the window.  `action_count` = per-action tick filter (finer grain than shard).  `latest shard` = shard with highest `tick_range[1]`.
+- **Critical-need threshold.** `CRITICAL_THRESHOLD = 1` per plan; `NEED_MAX = 5` from existing NeedStates convention.
+- **Component testing.** No Astro container renderer installed, so every tier + dashboard test uses the T3-established pattern: extract a pure helper (`utils/agent-dashboard.ts`, `utils/now-running.ts`, `utils/library.ts`), unit-test the helper with vitest, keep the Astro template as a thin formatting shell.  Matches the pre-existing `RunDetail-search.test.ts` shape.
+- **Pluralization.** `"{n} ended runs"` literal per plan, no singular special case at `n=1`.
+- **Paused card color.** `.em-card--paused` uses the same amber (`#c8b450`) as the existing `.em-badge--paused` for visual coherence.
 
-Host-site call sites need a one-line prop update before they can bump this submodule.  The Task 2 subagent initially edited the host sites directly; those edits were reverted to respect builder-isolation (emergence-ui builder does not commit to sibling repos).  Planner should route follow-up build specs to the two host builders:
+## New findings
 
-- **echoit-site** (`D:\Clanker\echoit-site\`) -- `src/pages/emergence/run/[n]/day/[d].astro` getStaticPaths + page template: replace `totalDays: detail.days.length` with `dayList: detail.days.map(d => d.sim_day).sort((a, b) => a - b)`, destructure `dayList` instead of `totalDays`, pass `dayList` to `<DayDetailComponent>`.
-- **drewconrad.us** (`D:\Clanker\drewconrad.us\`) -- `src/pages/project-emergence/run/[n]/day/[d].astro`: same pattern.  Single-line change, already vetted by the Task 2 subagent.
-
-### Minor finding -- not fixed per spec
-
-`data/json-loader.ts` `mapRun` uses `??` for `tick_count`, `agent_count`, etc.  If `runs.json` ever explicitly sets those to literal `0`, the outer `||` manifest fallback in `getRun` can't override.  Purely theoretical for realistic data; documented in the coverage tests via field omission rather than `0`.  Log to backlog if it matters.
-
-### Token totals
-
-Detail in `docs/emu3-token-report.md`.  Subagent self-report: ~60,500.  Harness total across all three task subagents: 156,914 tokens / 88 tool uses / 449s.
-
-### Backlog closure (planner)
-
-BL-206, BL-207, BL-209 -- closure gate met.  Planner to transition status + adjust header counts.
-
-### Push note
-
-Drew explicitly directed wayland (builder) to commit + push this PI's artifacts rather than handing off to clanker (planner).  Noting for the session record so the "builder does not push" default isn't mistaken for a policy change.
+- **Parallelism underused.** I dispatched T3 and T4 as sequential subagent calls rather than a single message with two Agent blocks.  Outcome identical, wall clock longer than necessary.  Future PIs: batch independent subagents in one message.
+- **Host-site readiness.** Because Hub falls back to the legacy render when `activeRuns` / `endedRuns` aren't passed, echoit-site and drewconrad.us can upgrade at their own cadence.  No coordinated cutover needed for tonight's Emergence run as long as the host page passes the two new slices.
+- **Loader coupling to PIP-56 BL-127.** NowRunning reads `ended_at IS NULL` — works correctly whether or not the PE-side end-run CLI has landed.  Fixtures exercise both states.  Overnight run is unblocked from the UI side.
