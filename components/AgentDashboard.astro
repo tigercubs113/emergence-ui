@@ -1,0 +1,87 @@
+---
+// emergence-ui/components/AgentDashboard.astro
+//
+// Per-agent row grid for the Now Running tier (EMU-4 T3).
+// Renders one row per agent: name, hunger, thirst, rest, location, latest action.
+// Derivation lives in utils/agent-dashboard.ts -- this template is a thin
+// formatting layer, which keeps the logic unit-testable without jsdom.
+
+import type { AgentDashboardRow } from '../data/types';
+import { deriveDashboardRows } from '../utils/agent-dashboard';
+
+interface Props {
+  rows: AgentDashboardRow[] | null | undefined;
+}
+
+const { rows } = Astro.props;
+const views = deriveDashboardRows(rows);
+const hasRows = views.length > 0;
+---
+{hasRows ? (
+  <div class="em-dashboard-grid" role="table" aria-label="Per-agent status">
+    <div class="em-dashboard-grid__header" role="rowheader">Agent</div>
+    <div class="em-dashboard-grid__header" role="rowheader">Hunger</div>
+    <div class="em-dashboard-grid__header" role="rowheader">Thirst</div>
+    <div class="em-dashboard-grid__header" role="rowheader">Rest</div>
+    <div class="em-dashboard-grid__header" role="rowheader">Location</div>
+    <div class="em-dashboard-grid__header" role="rowheader">Latest Action</div>
+
+    {views.map(v => (
+      <>
+        <div class="em-dashboard-grid__cell em-dashboard-grid__agent" data-agent-name={v.agent_name}>
+          <span class="em-h3">{v.agent_name}</span>
+        </div>
+        <div class={`em-dashboard-grid__cell${v.hunger_critical ? ' em-dashboard-grid__critical' : ''}`}>
+          {v.hunger_display}
+        </div>
+        <div class={`em-dashboard-grid__cell${v.thirst_critical ? ' em-dashboard-grid__critical' : ''}`}>
+          {v.thirst_display}
+        </div>
+        <div class={`em-dashboard-grid__cell${v.rest_critical ? ' em-dashboard-grid__critical' : ''}`}>
+          {v.rest_display}
+        </div>
+        <div class="em-dashboard-grid__cell em-mono">{v.location_display}</div>
+        <div class="em-dashboard-grid__cell em-feed-item">{v.action_display}</div>
+      </>
+    ))}
+  </div>
+) : (
+  <div class="em-subtitle" data-testid="agent-dashboard-blank">
+    No agent data available yet.
+  </div>
+)}
+
+<style>
+  .em-dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr 2fr;
+    gap: 8px 12px;
+    font-size: 13px;
+    align-items: center;
+  }
+  .em-dashboard-grid__header {
+    color: var(--em-text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .em-dashboard-grid__cell {
+    color: var(--em-text-muted);
+    padding: 4px 0;
+  }
+  .em-dashboard-grid__agent {
+    color: var(--em-text);
+  }
+  .em-dashboard-grid__critical {
+    color: var(--em-danger);
+    font-weight: bold;
+  }
+  @media (max-width: 768px) {
+    .em-dashboard-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .em-dashboard-grid__header {
+      display: none;
+    }
+  }
+</style>
