@@ -30,6 +30,32 @@ interface JsonLoaderConfig {
 export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
   const { runsJson, runDataDir } = config;
 
+  function normalizeModelConfig(raw: any): ModelConfig {
+    // Accept strings, objects missing `.routes`, or null/undefined; always return a valid ModelConfig.
+    if (!raw) {
+      return { routes: {}, fallback: { provider: '', model: '' } };
+    }
+    if (typeof raw === 'string') {
+      // String form like "claude-cli:claude-haiku-4-5-20251001"
+      const [providerRaw, ...modelParts] = raw.split(':');
+      const model = modelParts.length > 0 ? modelParts.join(':') : raw;
+      const provider = modelParts.length > 0 ? providerRaw : '';
+      return {
+        routes: {},
+        fallback: { provider, model },
+      };
+    }
+    if (typeof raw === 'object') {
+      return {
+        routes: raw.routes && typeof raw.routes === 'object' ? raw.routes : {},
+        fallback: raw.fallback && typeof raw.fallback === 'object'
+          ? { provider: raw.fallback.provider ?? '', model: raw.fallback.model ?? '' }
+          : { provider: '', model: '' },
+      };
+    }
+    return { routes: {}, fallback: { provider: '', model: '' } };
+  }
+
   function mapRun(raw: any): Run {
     // ended_at: preserve null vs undefined distinction.  Legacy fixtures omit the field
     // entirely (undefined), which listActiveRuns treats as active.  Supabase export
@@ -46,7 +72,7 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
       agents_alive: raw.agents_alive ?? raw.agent_count ?? 0,
       prng_seed: raw.seed ?? raw.prng_seed ?? 0,
       wall_clock_ms: raw.wall_clock_ms ?? 0,
-      model_config: raw.model_config ?? { routes: {}, fallback: { provider: '', model: '' } },
+      model_config: normalizeModelConfig(raw.model_config),
       summary: raw.summary ?? '',
       created_at: raw.created_at ?? '',
       ended_at: endedAt,
@@ -172,9 +198,9 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
         agents_alive: base.agents_alive || agentsAlive,
         prng_seed: base.prng_seed || (manifest.config_snapshot?.seed ?? 0),
         wall_clock_ms: base.wall_clock_ms || (manifest.wall_clock_ms ?? 0),
-        model_config: base.model_config.routes && Object.keys(base.model_config.routes).length > 0
+        model_config: Object.keys(base.model_config.routes).length > 0
           ? base.model_config
-          : manifest.config_snapshot?.llm ?? base.model_config,
+          : normalizeModelConfig(manifest.config_snapshot?.llm ?? base.model_config),
         agents,
         days: Array.from(dayMap.values()).sort((a, b) => a.sim_day - b.sim_day),
         relationships: Array.from(relationshipMap.values()),
