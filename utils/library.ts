@@ -20,11 +20,17 @@ export function isEndedRun(run: Pick<Run, 'ended_at'>): boolean {
   return typeof run.ended_at === 'string' && run.ended_at.length > 0;
 }
 
-// Badge text derived from the same tier predicate (EMU-5 T2).  Extracted so
-// RunCard.astro's badge binding is testable without an Astro container
-// renderer.  Binary ENDED/RUNNING -- utils/library has no paused concept
-// (card-level paused styling is orthogonal to tier and lives on raw status).
-export function runBadgeText(run: Pick<Run, 'ended_at'>): 'ENDED' | 'RUNNING' {
+// Badge text derived from the same tier predicate (EMU-5 T2 + EMU-12 paused
+// coexistence).  Extracted so RunCard.astro's badge binding is testable
+// without an Astro container renderer.  Three-way classification: PAUSED
+// short-circuits on raw status (EMU-10 added 'paused' to normalizeStatus),
+// then the tier predicate picks ENDED vs RUNNING.  Paused is orthogonal to
+// tier membership -- a paused run is still "active" from Library's POV but
+// the badge must reflect the operator-visible pause.
+export function runBadgeText(
+  run: Pick<Run, 'ended_at' | 'status'>
+): 'PAUSED' | 'ENDED' | 'RUNNING' {
+  if (run.status === 'paused') return 'PAUSED';
   return isEndedRun(run) ? 'ENDED' : 'RUNNING';
 }
 

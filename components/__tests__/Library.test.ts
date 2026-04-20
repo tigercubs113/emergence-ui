@@ -155,6 +155,25 @@ describe('runBadgeText (EMU-5 T2)', () => {
   it('returns "RUNNING" when ended_at is undefined', () => {
     expect(runBadgeText(makeRun({ ended_at: undefined as any }))).toBe('RUNNING');
   });
+
+  // EMU-12 T4 paused coexistence: three-way badge must surface PAUSED
+  // (added to normalizeStatus by EMU-10) before falling through to the
+  // ENDED/RUNNING tier split.  Paused runs stay in the active tier but
+  // the badge reflects the operator-visible pause.
+  it('returns "PAUSED" when status is paused and ended_at is null (EMU-12 T4)', () => {
+    expect(runBadgeText(makeRun({ status: 'paused', ended_at: null as any }))).toBe('PAUSED');
+  });
+
+  it('returns "PAUSED" when status is paused regardless of undefined ended_at (EMU-12 T4)', () => {
+    expect(runBadgeText(makeRun({ status: 'paused', ended_at: undefined as any }))).toBe('PAUSED');
+  });
+
+  it('PAUSED takes precedence over ENDED when status=paused + ended_at set (EMU-12 T4)', () => {
+    // Defensive: if upstream ever writes both, operator pause wins at the badge
+    // level since Library tier already filtered the run to active via isEndedRun.
+    // This test documents the precedence rule.
+    expect(runBadgeText(makeRun({ status: 'paused', ended_at: '2026-04-14T06:00:00Z' }))).toBe('PAUSED');
+  });
 });
 
 // Invariant: for any run, runBadgeText never disagrees with isEndedRun.
@@ -199,9 +218,16 @@ describe('tier/badge invariant (EMU-5 T2)', () => {
       const tierEnded = isEndedRun(run);
       const badge = runBadgeText(run);
       expect(tierEnded).toBe(expectedEnded);
-      // Invariant: badge "ENDED" iff tier ended.
-      expect(badge === 'ENDED').toBe(tierEnded);
-      expect(badge === 'RUNNING').toBe(!tierEnded);
+      // Invariant (EMU-12 T4 adjusted for paused three-way):
+      //   - If status==paused -> badge is PAUSED regardless of tier (paused
+      //     short-circuits at the badge; run stays in active tier).
+      //   - Else: badge "ENDED" iff tier ended, "RUNNING" otherwise.
+      if (run.status === 'paused') {
+        expect(badge).toBe('PAUSED');
+      } else {
+        expect(badge === 'ENDED').toBe(tierEnded);
+        expect(badge === 'RUNNING').toBe(!tierEnded);
+      }
     });
   }
 });
