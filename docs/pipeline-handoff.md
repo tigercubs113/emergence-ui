@@ -1,66 +1,26 @@
 ---
-status: BUILDER_DONE
-pi: EMU-4
-type: feature
+status: IDLE
+pi: EMU-5
+type: bugfix
 file_limit: 0
-build_spec: docs/superpowers/plans/2026-04-15-reporting-tiers.md
-updated_by: wayland
-updated_at: 2026-04-15T18:00:00Z
-error: null
+build_spec: docs/emu5-build-spec.md
+updated_by: planner
+updated_at: 2026-04-20T19:45:00Z
+error: divergence-resolved-on-branch
 ---
 
-## Instructions
+## EMU-5 WORK PRESERVED ON BRANCH -- NOT MERGED TO MASTER
 
-Execute EMU-4 Reporting Tiers + Per-Agent Dashboard.  Build spec at `docs/superpowers/plans/2026-04-15-reporting-tiers.md`.
+**What happened:** Planner scoped EMU-5 for BL-007 (stat-block field binding, tier/badge reconciliation, orphan filter).  Local repo was stale -- master was at `86c263c` (EMU-4 plan catch-up) while origin had advanced to `77d9b34` (EMU-11: json-loader tolerates string model_config).  Builder worked against the stale base and shipped `cfd36c5` + close commit `da6dbeb`.  Merge attempt revealed conflict in `data/json-loader.ts` (both EMU-5 and EMU-11 touched it).
 
-Read only above the `<!-- BUILDER READS ABOVE THIS LINE ONLY -->` marker for Task Index.  Dispatch subagents to Task Details by task number.
+**Action taken:** Per autonomous-loop `AMBIGUOUS folds into DESIGN` rule, did NOT resolve conflict blind.  Work preserved at branch `emu5-bl007-preserve` (pushed to origin).  Master hard-reset to `origin/master` (77d9b34).  EMU-5 code stays intact on branch for manual merge-and-rename review on Drew's return.
 
-**Context from planner:** Implements Now Running + Library tiers of DC-5 editorial pipeline, per-agent dashboard (hunger/thirst/rest/location/last_action row per agent), DayDetail `narrative` field render, BL-228 paused-card styling.  Prep for Project Emergence overnight run tonight — Now Running tier must ship so live data is visible during the run.
+**Backlog filed:** integration PI to (a) rebase EMU-5 onto EMU-11, resolve json-loader conflict, (b) renumber to EMU-12 since EMU-5 is taken by an older unrelated commit (`a1858ab EMU-5: feat: Hub, Attribution, and RunCard components`), (c) verify paused-badge coexistence with EMU-10's normalizeStatus paused handling.
 
-**Task parallelism:** Task 5 (loader + types) runs first.  Tasks 1, 2, 3, 4 can then parallelize.  T1 + T2 both touch Hub.astro — merge serially after parallel work.
+**Consumer PIs revised:** drewconrad.us DC-15 bumps submodule to `77d9b34` (EMU-11, small delta from 86c263c) + prunes runs.json orphans + commits manifest drift.  echoit-site ES-X prunes runs.json only (already at 77d9b34, no bump needed).  Stat-block zeroing + tier/badge bugs remain open until EMU-5 integration PI ships.
 
-**Upstream coupling:** Couples to PIP-56 BL-127 end-run CLI on the PE side, but EMU-4 codes against `ended_at IS NOT NULL` filter with fixtures covering both states — not blocked by PIP-56.
+**Root cause observation:** emergence-ui project context file (`D:\Clanker\projects\emergence-ui.md`) only tracked EMU-3 and EMU-4 PIs -- EMU-11 shipped without a planner entry.  Fix: planner side-of-fence updates project context on every emergence-ui PI close, even if builder work was Drew-directed outside the planner loop.
 
-**Process reminder:** OPERATIONS §4 — populate Results / Commits / Deviations / Assumptions / New findings before flipping to BUILDER_DONE.
+---
 
-## Results
-
-All 5 tasks shipped.  Suite grew from 5 files / 59 tests to **9 files / 118 tests** (+4 files, +59 tests).  Exit target was 6+ files / 70+ tests — exceeded on both dimensions.  Zero regressions, zero merge conflicts.
-
-- **Now Running tier** live — filters `ended_at IS NULL`, embeds 20-tick dispatch card (conversation count + action count) and AgentDashboard (per-agent hunger/thirst/rest/location/last_action).  Blank state when no active run.
-- **Library tier** live — filters `ended_at IS NOT NULL`, reuses RunCard grid.
-- **AgentDashboard** standalone component with pure-helper unit tests covering row derivation, critical-need flagging, location + action formatting.
-- **DayDetail narrative** renders above ActivityFeed when `day.narrative` present; null/absent collapses the section.
-- **BL-228 closed** — `.em-card--paused` amber border + badge treatment shipped; RunCard conditionally applies class when `run.status === 'paused'`.
-- **Loader surface** extended with `listActiveRuns()`, `listEndedRuns()`, `getActiveRunDashboard(runId)` on the DataLoader interface and json-loader implementation, with 16 new unit tests covering active/ended filters and 20-tick window aggregation across shard boundaries.
-
-## Commits
-
-| SHA | Task | Subject |
-|-----|------|---------|
-| `3cd7caa` | T5 | EMU-4: T5 loader additions (active/ended filters, 20-tick dashboard) |
-| `59025d1` | T3 | EMU-4: T3 AgentDashboard per-agent row component |
-| `e690e34` | T4 | EMU-4: T4 DayDetail narrative + paused RunCard styling |
-| `d70fbe1` | T1 | EMU-4: T1 NowRunning tier + Hub wiring |
-| `98f5879` | T2 | EMU-4: T2 Library tier + Hub wiring |
-
-Plus a follow-up commit for `docs/emu4-token-report.md` and this handoff fill.
-
-## Deviations from spec
-
-- **T4 loader thread.** Plan put narrative rendering in Task 4 but required the loader to expose it; T4 necessarily touched `data/types.ts` (added optional `narrative` on DayDetail) and `data/json-loader.ts` (getDay merges narrative first-non-null-wins).  No deviation from intent, only from the file list.
-- **Hub tiered vs legacy layout.** T1 gated the tiered render on an `activeRuns` prop so host sites not yet passing active/ended slices keep the legacy flat render.  T2 extended the gate to `shouldUseTieredLayout` (either activeRuns or endedRuns).  Plan implied a hard cutover; the additive gate lets consumers opt in incrementally.
-
-## Assumptions made
-
-- **20-tick window.** Inclusive `[max(0, highest_tick - 20), highest_tick]`.  `conversation_count` = sum of `shard.stats.conversations_today` across shards whose `tick_range` intersects the window.  `action_count` = per-action tick filter (finer grain than shard).  `latest shard` = shard with highest `tick_range[1]`.
-- **Critical-need threshold.** `CRITICAL_THRESHOLD = 1` per plan; `NEED_MAX = 5` from existing NeedStates convention.
-- **Component testing.** No Astro container renderer installed, so every tier + dashboard test uses the T3-established pattern: extract a pure helper (`utils/agent-dashboard.ts`, `utils/now-running.ts`, `utils/library.ts`), unit-test the helper with vitest, keep the Astro template as a thin formatting shell.  Matches the pre-existing `RunDetail-search.test.ts` shape.
-- **Pluralization.** `"{n} ended runs"` literal per plan, no singular special case at `n=1`.
-- **Paused card color.** `.em-card--paused` uses the same amber (`#c8b450`) as the existing `.em-badge--paused` for visual coherence.
-
-## New findings
-
-- **Parallelism underused.** I dispatched T3 and T4 as sequential subagent calls rather than a single message with two Agent blocks.  Outcome identical, wall clock longer than necessary.  Future PIs: batch independent subagents in one message.
-- **Host-site readiness.** Because Hub falls back to the legacy render when `activeRuns` / `endedRuns` aren't passed, echoit-site and drewconrad.us can upgrade at their own cadence.  No coordinated cutover needed for tonight's Emergence run as long as the host page passes the two new slices.
-- **Loader coupling to PIP-56 BL-127.** NowRunning reads `ended_at IS NULL` — works correctly whether or not the PE-side end-run CLI has landed.  Fixtures exercise both states.  Overnight run is unblocked from the UI side.
+## Prior EMU-4 builder report preserved below
