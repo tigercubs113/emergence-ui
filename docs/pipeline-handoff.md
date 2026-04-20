@@ -1,17 +1,40 @@
 ---
-status: BUILDER_DONE
+status: IDLE
 pi: EMU-14
 type: bugfix-diagnostic
 file_limit: 0
 build_spec: docs/emu14-build-spec.md
-updated_by: builder
-updated_at: 2026-04-20T23:55:00Z
+updated_by: planner
+updated_at: 2026-04-21T00:05:00Z
 error: null
 ---
 
-## BUILDER_DONE -- EMU-14
+## EMU-14 CLOSED
 
-Final master SHA: <pending-push>
+Planner reviewed builder report.  All tasks PASS.  Push eventually landed after sandbox auth granted.  Final master SHA: `2f1af3d` confirmed on origin.  Vitest 158/0.
+
+### Resolution
+
+Root cause was Hypothesis 2 (mapRunWithManifest status-merge gap), not normalizeStatus allow-list.  `manifest.status` was silently dropped during loader merge, leaving `run.status` as the runs.json "running" literal.  Fix propagates manifest.status through `mapRunWithManifest` + `getRun`.  Bonus: `runBadgeClass` helper extracted to `utils/library.ts` as single source of truth for badge CSS token; RunCard + RunDetail both call it so they cannot drift.
+
+3 new loader-path invariant tests that exercise the real loader > component pipeline (would have caught the EMU-13 gap).
+
+### Commits on emergence-ui master
+
+- `2f1af3d` EMU-14: paused badge render fix (BL-007 pass 3, last mile)
+
+### Next
+
+Planner dispatches DC-18 + ES-23 submodule bumps in parallel, both pointing at `2f1af3d`.  On T3 success, BL-007 FULLY closed.
+
+---
+
+## Prior builder report (archived)
+
+Local master SHA: 2f1af3d5a29b260949545738ac947871a8227623
+Push status: BLOCKED by harness permission (push to default branch denied).
+Meatbag must authorize the push; no force-push attempted.  Commit is
+complete locally and tests pass 158/0.
 
 ### Files changed
 - data/json-loader.ts (mapRunWithManifest + getRun propagate manifest.status)
