@@ -191,6 +191,70 @@ describe('createJsonLoader', () => {
       const run = await loader.getRun('noseed-001');
       expect(run.prng_seed).toBe(0);
     });
+
+    // EMU-13 T3 (BL-231): RunDetail stat block must reflect persisted totals.
+    // runs.json reports tick_count=0 for paused/mid-flight runs (pipeline only
+    // writes the row on run end), so getRun must fall back to manifest
+    // total_ticks using || rather than ??.  With ??, tick_count=0 (not nullish)
+    // would shadow the manifest and RunDetail would render "0 ticks | 0 days".
+    it('getRun: rawRun tick_count=0 falls through to manifest.total_ticks (|| not ??)', async () => {
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'paused-ticks',
+            run_number: 42,
+            status: 'paused',
+            tick_count: 0,
+            sim_days: 0,
+            ended_at: null,
+          },
+        ],
+      };
+      const dir = {
+        'run-42/manifest.json': {
+          total_ticks: 200,
+          config_snapshot: { clock: { ticks_per_day: 100 } },
+          agents_initial: [],
+        },
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: dir });
+      const run = await loader.getRun('paused-ticks');
+      // tick_count=0 on the row must NOT shadow manifest.total_ticks=200.
+      expect(run.tick_count).toBe(200);
+      // sim_days derives from merged tick_count / ticks_per_day.
+      expect(run.sim_days).toBeCloseTo(2.0);
+    });
+
+    it('getRun: current_tick on raw row does not shadow persisted tick_count', async () => {
+      // Pipeline writes current_tick as a live-run field; the loader must NOT
+      // use it as a substitute for persisted tick_count.  RunDetail reads
+      // tick_count only, so the merged object's tick_count must come from
+      // rawRun.tick_count || manifest.total_ticks (|| 0), ignoring current_tick.
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'live-run',
+            run_number: 43,
+            status: 'running',
+            tick_count: 0,
+            sim_days: 0,
+            current_tick: 999, // live field; must NOT end up as tick_count
+            ended_at: null,
+          },
+        ],
+      };
+      const dir = {
+        'run-43/manifest.json': {
+          total_ticks: 150,
+          config_snapshot: { clock: { ticks_per_day: 100 } },
+          agents_initial: [],
+        },
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: dir });
+      const run = await loader.getRun('live-run');
+      expect(run.tick_count).toBe(150);
+      expect(run.tick_count).not.toBe(999);
+    });
   });
 
   describe('getDay', () => {

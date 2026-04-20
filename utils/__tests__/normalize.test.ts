@@ -51,6 +51,25 @@ describe('normalizeStatus', () => {
     expect(normalizeStatus('RUNNING')).toBe('running');
     expect(normalizeStatus(undefined)).toBe('running');
   });
+
+  // EMU-13 T1 (BL-231): 'ended' and 'crashed' are terminal statuses added
+  // to Run.status; they must pass through normalizeStatus untouched so the
+  // loader's status-based tiering can classify them correctly.  'paused'
+  // must also pass through (operator pause coexists with the active tier).
+  it('passes through EMU-13 terminal statuses without coercing to running', () => {
+    expect(normalizeStatus('ended')).toBe('ended');
+    expect(normalizeStatus('crashed')).toBe('crashed');
+    expect(normalizeStatus('paused')).toBe('paused');
+    expect(normalizeStatus('aborted')).toBe('aborted');
+    // Case insensitive -- upstream may emit uppercase.
+    expect(normalizeStatus('ENDED')).toBe('ended');
+    expect(normalizeStatus('Crashed')).toBe('crashed');
+  });
+
+  it('coerces unknown status to running (defensive default)', () => {
+    expect(normalizeStatus('zombied')).toBe('running');
+    expect(normalizeStatus('')).toBe('running');
+  });
 });
 
 describe('filterInternalNeeds', () => {

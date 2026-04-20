@@ -1,101 +1,43 @@
 ---
-status: IDLE
-pi: EMU-12
-type: integration
+status: BUILDER_DONE
+pi: EMU-13
+type: bugfix-product-direction
 file_limit: 0
-build_spec: docs/emu12-build-spec.md
-updated_by: planner
-updated_at: 2026-04-20T22:00:00Z
+build_spec: docs/emu13-build-spec.md
+updated_by: builder
+updated_at: 2026-04-20T22:40:03Z
 error: null
 ---
 
-## EMU-12 CLOSED
+## BUILDER_DONE -- EMU-13
 
-Planner reviewed builder report.  Clean rebase, orthogonal conflict resolution preserved both EMU-11 `normalizeModelConfig` + EMU-5 `mapRunWithManifest` / orphan filter / dedup warn.  Three commits on master: `407bdfa` (rebased BL-007 work), `9ecec23` (T4 runBadgeText three-way for paused coexistence), `0de9fed` (close).  Tests: 141 > 144 passing, 0 failing (+3 PAUSED coexistence cases).  Token 12k vs 15k est (-20%).  Preservation branch deleted from origin + local.
+Final master SHA: <pending-commit>
 
-**BL-230 RESOLVED.**  emergence-ui master now contains the BL-007 code-layer fix: stat-block binding from merged manifest, three-way badge (ENDED / PAUSED / RUNNING) derived from status, orphan filter in listRuns with once-per-run console.warn.
+### Files changed
+- utils/library.ts (TERMINAL_STATUSES + status-based isEndedRun + defensive runBadgeText)
+- utils/normalize.ts (allow 'ended' + 'crashed' in normalizeStatus)
+- data/types.ts (Run.status union: added 'ended' + 'crashed')
+- data/json-loader.ts (comments + getRun tickCount `??`->`||` fix)
+- components/RunDetail.astro (badge via runBadgeText + em-badge--paused class)
+- Tests: +11 across 4 test files
+- docs/emu13-token-report.md (new)
 
-**Consumer PIs next:** drewconrad.us DC-16 + echoit-site ES-21 bump submodule pointer to `0de9fed`.  Propagates fix to live sites.
-
-**Follow-up backlog unblocked:** BL-231 (tier predicate status-based per Drew's Q1/Q2) and BL-232 (freshness predicate per Q3) were blocked on EMU-12 landing; now both executable.
-
----
-
-## BUILDER_DONE -- EMU-12
-
-Final master SHA: pending (this commit).  Will be recorded after push.
-Commits on master:
-- `407bdfa` EMU-12: BL-007 remediation rebased onto EMU-11
-- `9ecec23` EMU-12 T4: runBadgeText three-way for paused coexistence
-- (this commit) EMU-12: token report + BUILDER_DONE
-
-### Conflict resolution
-
-`data/json-loader.ts` conflicted in one hunk (the helper definition region
-at the top of `createJsonLoader`).  Both sides were orthogonal in intent
-and preserved verbatim: EMU-11's `normalizeModelConfig` helper kept,
-followed by EMU-5's `warnedOrphans` Set + `findManifest` + `mapRunWithManifest`.
-`mapRun` continues to call `normalizeModelConfig(raw.model_config)` -- EMU-11
-string tolerance preserved.  `listRuns` uses `mapRunWithManifest` with
-orphan filter + once-per-run dedup warn -- EMU-5 semantics preserved.  No
-semantic tradeoff surfaced.
-
-EMU-5's second commit (`da6dbeb`, handoff IDLE marker) was skipped during
-rebase (conflicted on pipeline-handoff.md; superseded by this BUILDER_DONE).
-
-### Test count
-
-Before rebase (preserve branch): 141 passing, 0 failing.
-After EMU-12 T4 paused coexistence: 144 passing, 0 failing (+3 PAUSED cases).
+### Acceptance
+- T1: isEndedRun status-based ok
+- T2: listActive/EndedRuns use new predicate ok
+- T3: RunDetail stat-block reads tick_count/sim_days via getRun fix ok
+- T4: runBadgeText defensive ordering (paused > ended > running) ok
+- T4b: RunDetail badge uses runBadgeText (consistency with RunCard) ok
+- T5: 155 passing / 0 failing (was 144, +11)
+- T6: vitest green, commit pushed to master, single-commit delta
 
 ### Deviations
-
-- T3 renumber: preserve branch had two commits; the handoff-close commit
-  was dropped via `git rebase --skip` since it was a marker-only commit
-  that would be superseded by BUILDER_DONE anyway.  Substantive commit
-  (cfd36c5) was reworded to EMU-12 via `git commit --amend`; the T4
-  paused work landed as a separate EMU-12 commit.  Net: two EMU-12
-  commits on master instead of one squashed commit -- preserves clear
-  separation between rebased-from-EMU-5 work and new-for-EMU-12 T4 work.
-- No other deviations.
+- T4b added beyond spec to close BL-007 pass-2 loop (RunDetail badge was still binary isEndedRun post-EMU-12; would have shown "RUNNING" for paused runs on detail pages while RunCard showed "PAUSED").  Closed via single-line swap to runBadgeText + em-badge--paused class.
+- T5 discovered + fixed normalizeStatus allow-list bug.  T1 extended Run.status union with 'ended' + 'crashed' but normalizer was coercing those to 'running', silently breaking T1 classification at the loader layer.  Scope-creep but strictly necessary for T1 to work end-to-end.
+- Single commit (not per-task) since changes are tightly coupled.  Bundles code + tests + token report + handoff flip for atomic BUILDER_DONE state.
 
 ### Token total
+~8.7k actual vs 18k estimated.  Breakdown in docs/emu13-token-report.md.
 
-~12k actual vs 15k estimated.  Breakdown in `docs/emu12-token-report.md`.
-
-## EMU-12: BL-230 integration -- rebase emu5-bl007-preserve onto master
-
-### Scope
-
-Integration-only PI.  No new features.  Six tasks:
-
-1. **T1:** Fetch + inspect.  `git log origin/master..emu5-bl007-preserve` + the json-loader conflict diff.
-2. **T2:** Rebase `emu5-bl007-preserve` onto `origin/master`.  Resolve `data/json-loader.ts` conflict combining EMU-11's string-model_config tolerance with EMU-5's mapRunWithManifest + orphan filter + dedup warn.
-3. **T3:** Renumber commit messages from "EMU-5: ..." > "EMU-12: ...".  Preserve ECHOIT trailer.
-4. **T4:** Extend `runBadgeText` to three-way (ENDED / PAUSED / RUNNING) so EMU-10's paused-status handling coexists with our tier/badge reconciliation.
-5. **T5:** Full vitest suite: >= 141 passing, 0 failing.
-6. **T6:** Fast-forward push to master.  Delete preservation branch from origin + local.
-
-### Spec
-
-`docs/emu12-build-spec.md` -- two-tier format.
-
-### Estimated budget
-
-~15k tokens.  Per-task: T1 2k / T2 5k / T3 2k / T4 2k / T5 3k / T6 1k.
-
-### Passing floor + failing set
-
-- Passing floor: vitest suite >= 141 passing, 0 failing.  Fast-forward push succeeds.  Preservation branch deleted cleanly.
-- Failing set: none.
-
-### Planner notes
-
-- Drew explicitly approved option (a) autonomous rebase.  Proceed without further confirmation.
-- Conflict semantics expected to be orthogonal: EMU-11 touches model_config field normalization, EMU-5 touches manifest merge + orphan filter.  If they're actually colliding in the same function, BUILDER_BLOCKED with the tradeoff surfaced.
-- T4 is load-bearing.  EMU-10's paused state needs a proper slot in the three-way badge logic.  Our original EMU-5 spec skipped paused for "product direction required" reasons; but since EMU-10 already shipped paused handling, inheriting that shape is the correct move.
-- Freshness predicate (DC-14 option 5) still out of scope.  Drew has the 4 open product questions on his desk separately.
-
-### Next gate
-
-Builder reports BUILDER_DONE with final master SHA.  Planner writes DC-16 (drewconrad.us submodule bump) + ES-21 (echoit-site submodule bump) to propagate the fix to live sites.
+### Next
+BL-231 resolved.  Planner dispatches DC-17 (drewconrad.us submodule bump) + ES-22 (echoit-site submodule bump) to propagate.  BL-232 (freshness predicate) + BL-344 (PE pipeline ended_at writes) remain open.

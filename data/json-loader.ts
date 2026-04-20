@@ -234,9 +234,14 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
         }
       }
 
-      // Derive stats from manifest + shard data when runs.json lacks them
-      const tickCount = rawRun.tick_count ?? manifest.total_ticks ?? 0;
+      // EMU-13 T3: stat block must reflect persisted totals.  runs.json
+      // frequently reports tick_count=0 for paused/mid-flight runs (pipeline
+      // only writes it on run end), so fall back to manifest.total_ticks
+      // using || (falsy-fallback) rather than ?? (null-only).  Mirrors
+      // mapRunWithManifest's listing-level derivation so RunDetail's header
+      // and RunCard's subtitle agree for paused runs with persisted ticks.
       const ticksPerDay = manifest.config_snapshot?.clock?.ticks_per_day ?? 100;
+      const tickCount = rawRun.tick_count || manifest.total_ticks || 0;
       const agentCount = rawRun.agent_count || agents.length;
       const agentsAlive = rawRun.agents_alive || agents.filter((a: any) => a.is_alive).length;
 
@@ -432,18 +437,21 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
     },
 
     async listActiveRuns(): Promise<Run[]> {
-      // Active = not ended.  Shares the isEndedRun predicate with the Library
-      // tier + RunCard badge so no consumer can see a run classified
-      // differently from another (EMU-5 T2).  Orphan filter is applied by
-      // listRuns.
+      // Active = running OR paused (EMU-13 T2, BL-231).  Classification is
+      // status-based via isEndedRun; paused runs stay in the active tier so
+      // the operator can resume them from NowRunning.  Shares the predicate
+      // with RunCard so no consumer can see a run classified differently
+      // from another.  Orphan filter is applied by listRuns.
       const all = await this.listRuns();
       return all.filter(r => !isEndedRun(r));
     },
 
     async listEndedRuns(): Promise<Run[]> {
-      // Ended = ended_at is a non-empty ISO string.  Single source of truth
-      // is isEndedRun in utils/library.ts; RunCard badge reads the same
-      // predicate (EMU-5 T2).  Orphan filter is applied by listRuns.
+      // Ended = status in {ended, completed, aborted, crashed} (EMU-13 T2,
+      // BL-231).  Single source of truth is isEndedRun in utils/library.ts;
+      // RunCard badge reads the same predicate.  ended_at is no longer the
+      // classifier (pipeline writes it on any non-running transition).
+      // Orphan filter is applied by listRuns.
       const all = await this.listRuns();
       return all.filter(isEndedRun);
     },

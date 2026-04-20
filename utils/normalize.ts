@@ -28,9 +28,23 @@ export function normalizePersonality(
 
 export function normalizeStatus(
   status: string | undefined
-): 'running' | 'paused' | 'completed' | 'aborted' {
+): 'running' | 'paused' | 'completed' | 'aborted' | 'ended' | 'crashed' {
+  // EMU-13 T1 (BL-231): the Run.status union was extended with 'ended' and
+  // 'crashed' terminal statuses.  normalizeStatus must forward them through;
+  // otherwise the loader's listEndedRuns/listActiveRuns tiering (which reads
+  // status via isEndedRun) would coerce them to 'running' and misclassify
+  // the run as active.  Allow-list matches utils/library.ts TERMINAL_STATUSES
+  // plus {running, paused}.
   const s = (status ?? 'running').toLowerCase();
-  if (s === 'completed' || s === 'aborted' || s === 'paused') return s as 'completed' | 'aborted' | 'paused';
+  if (
+    s === 'completed' ||
+    s === 'aborted' ||
+    s === 'paused' ||
+    s === 'ended' ||
+    s === 'crashed'
+  ) {
+    return s as 'completed' | 'aborted' | 'paused' | 'ended' | 'crashed';
+  }
   return 'running';
 }
 

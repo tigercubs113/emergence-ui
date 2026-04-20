@@ -5,7 +5,10 @@ export interface Run {
   id: string;           // Full UUID (bcf25057-2c03-4e70-b147-169a95383f61)
   run_number: number;   // Sequential display number (19)
   name: string;         // Human label ("Haiku 4.5 Evaluation")
-  status: 'running' | 'paused' | 'completed' | 'aborted';
+  // EMU-13: 'ended' + 'crashed' added to the terminal set (BL-231).  The
+  // pipeline may emit any of these as the final status.  utils/library.ts
+  // TERMINAL_STATUSES is the single source of truth for which are terminal.
+  status: 'running' | 'paused' | 'completed' | 'aborted' | 'ended' | 'crashed';
   tick_count: number;
   sim_days: number;
   agent_count: number;

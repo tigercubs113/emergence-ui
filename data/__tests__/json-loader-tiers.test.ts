@@ -67,6 +67,40 @@ describe('reporting tiers', () => {
       expect(active).toHaveLength(1);
       expect(active[0].id).toBe('legacy-1');
     });
+
+    // EMU-13 T2 (BL-231): paused runs stay in the active tier regardless of
+    // whether ended_at is present (pipeline writes ended_at on pause too).
+    // This test documents the paused coexistence contract against the loader.
+    it('paused run appears in listActiveRuns (even with ended_at set)', async () => {
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'paused-1',
+            run_number: 1,
+            status: 'paused',
+            // ended_at deliberately present -- simulates EMU-12 pipeline bug.
+            ended_at: '2026-04-14T06:00:00Z',
+          },
+          {
+            run_id: 'ended-1',
+            run_number: 2,
+            status: 'ended',
+            ended_at: '2026-04-14T07:00:00Z',
+          },
+        ],
+      };
+      const loader = createJsonLoader({
+        runsJson: runsRow,
+        runDataDir: {
+          'run-1/manifest.json': {},
+          'run-2/manifest.json': {},
+        },
+      });
+      const active = await loader.listActiveRuns();
+      expect(active).toHaveLength(1);
+      expect(active[0].id).toBe('paused-1');
+      expect(active[0].status).toBe('paused');
+    });
   });
 
   describe('listEndedRuns', () => {
@@ -92,6 +126,44 @@ describe('reporting tiers', () => {
       const ended = await loader.listEndedRuns();
       expect(ended[0].run_number).toBe(2);
       expect(ended[1].run_number).toBe(1);
+    });
+
+    // EMU-13 T2 (BL-231): status-based classification.  All four terminal
+    // statuses {ended, completed, aborted, crashed} must appear in the ended
+    // tier and none in the active tier.  Paused + running stay active.
+    it('classifies each terminal status into listEndedRuns and neither running/paused', async () => {
+      const runsRow = {
+        runs: [
+          { run_id: 'r-run', run_number: 1, status: 'running', ended_at: null },
+          { run_id: 'r-paused', run_number: 2, status: 'paused', ended_at: null },
+          { run_id: 'r-ended', run_number: 3, status: 'ended', ended_at: 'x' },
+          { run_id: 'r-completed', run_number: 4, status: 'completed', ended_at: 'x' },
+          { run_id: 'r-aborted', run_number: 5, status: 'aborted', ended_at: 'x' },
+          { run_id: 'r-crashed', run_number: 6, status: 'crashed', ended_at: 'x' },
+        ],
+      };
+      const loader = createJsonLoader({
+        runsJson: runsRow,
+        runDataDir: {
+          'run-1/manifest.json': {},
+          'run-2/manifest.json': {},
+          'run-3/manifest.json': {},
+          'run-4/manifest.json': {},
+          'run-5/manifest.json': {},
+          'run-6/manifest.json': {},
+        },
+      });
+      const active = await loader.listActiveRuns();
+      const ended = await loader.listEndedRuns();
+
+      const activeIds = active.map(r => r.id).sort();
+      const endedIds = ended.map(r => r.id).sort();
+
+      expect(activeIds).toEqual(['r-paused', 'r-run']);
+      expect(endedIds).toEqual(['r-aborted', 'r-completed', 'r-crashed', 'r-ended']);
+
+      // No overlap between tiers.
+      for (const id of activeIds) expect(endedIds).not.toContain(id);
     });
   });
 

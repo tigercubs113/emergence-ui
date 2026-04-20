@@ -9,29 +9,37 @@
 
 import type { Run } from '../data/types.js';
 
-// Single source of truth for run lifecycle classification (EMU-5 T2).
-// A run is "ended" when runs.json (or the upstream source) has written a
-// non-empty ISO string into ended_at.  null/undefined/empty string all mean
-// the run is still active.  Both the Library tier filter and RunCard's status
-// badge derive from this predicate so the two UI surfaces cannot disagree
-// (DC-14 RC4: raw status=="running" while ended_at was a string -> badge
-// contradicted tier).
-export function isEndedRun(run: Pick<Run, 'ended_at'>): boolean {
-  return typeof run.ended_at === 'string' && run.ended_at.length > 0;
+// Single source of truth for run lifecycle classification (EMU-13 T1, BL-231).
+// Classification is status-based, NOT timestamp-based: the pipeline writes
+// ended_at on ANY non-running transition (pause, TPK, error), so ended_at
+// presence cannot indicate termination.  A run is "ended" IFF its status is
+// one of the terminal statuses below.  Paused + running remain in the active
+// tier.  Both the Library tier filter and RunCard's status badge derive from
+// this predicate so the two UI surfaces cannot disagree (DC-14 RC4 history:
+// prior ended_at-based predicate misclassified paused runs as ended).
+const TERMINAL_STATUSES: ReadonlySet<Run['status']> = new Set([
+  'ended',
+  'completed',
+  'aborted',
+  'crashed',
+]);
+
+export function isEndedRun(run: Pick<Run, 'status'>): boolean {
+  return TERMINAL_STATUSES.has(run.status);
 }
 
 // Badge text derived from the same tier predicate (EMU-5 T2 + EMU-12 paused
-// coexistence).  Extracted so RunCard.astro's badge binding is testable
-// without an Astro container renderer.  Three-way classification: PAUSED
-// short-circuits on raw status (EMU-10 added 'paused' to normalizeStatus),
-// then the tier predicate picks ENDED vs RUNNING.  Paused is orthogonal to
-// tier membership -- a paused run is still "active" from Library's POV but
-// the badge must reflect the operator-visible pause.
+// coexistence + EMU-13 T4 defensive reorder).  Extracted so RunCard.astro's
+// badge binding is testable without an Astro container renderer.  Order is
+// belt-and-suspenders: the paused check runs BEFORE isEndedRun so even if
+// 'paused' were accidentally added to TERMINAL_STATUSES, paused runs would
+// still render PAUSED (BL-231).
 export function runBadgeText(
-  run: Pick<Run, 'ended_at' | 'status'>
+  run: Pick<Run, 'status'>
 ): 'PAUSED' | 'ENDED' | 'RUNNING' {
   if (run.status === 'paused') return 'PAUSED';
-  return isEndedRun(run) ? 'ENDED' : 'RUNNING';
+  if (isEndedRun(run)) return 'ENDED';
+  return 'RUNNING';
 }
 
 export type LibraryState =

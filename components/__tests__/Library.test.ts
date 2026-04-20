@@ -7,6 +7,8 @@
 // jsdom.
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { Run } from '../../data/types.js';
 import {
   deriveLibraryState,
@@ -110,106 +112,144 @@ describe('shouldUseTieredLayout', () => {
   });
 });
 
-// EMU-5 T2: the tier predicate and the RunCard badge must derive from a
-// single source of truth so the badge can never contradict the tier a run
-// was classified into (DC-14 RC4).
-describe('isEndedRun (EMU-5 T2)', () => {
-  it('classifies a run with a non-empty ended_at string as ended', () => {
-    expect(isEndedRun({ ended_at: '2026-04-14T06:00:00Z' })).toBe(true);
+// EMU-13 T1 (BL-231): the tier predicate is STATUS-based, not ended_at-based.
+// The pipeline writes ended_at on any non-running transition (pause, TPK,
+// error) so it cannot indicate termination.  A run is "ended" IFF its status
+// is one of {ended, completed, aborted, crashed}.  RunCard badge and Library
+// tier derive from the same predicate so they can never disagree.
+describe('isEndedRun (EMU-13 T1)', () => {
+  it('classifies status=completed as ended', () => {
+    expect(isEndedRun({ status: 'completed' })).toBe(true);
   });
 
-  it('classifies a run with ended_at === null as not ended', () => {
-    expect(isEndedRun({ ended_at: null as any })).toBe(false);
+  it('classifies status=ended as ended (EMU-13 new terminal status)', () => {
+    expect(isEndedRun({ status: 'ended' })).toBe(true);
   });
 
-  it('classifies a run with ended_at === undefined as not ended', () => {
-    expect(isEndedRun({ ended_at: undefined as any })).toBe(false);
+  it('classifies status=aborted as ended', () => {
+    expect(isEndedRun({ status: 'aborted' })).toBe(true);
   });
 
-  it('classifies a run with an empty-string ended_at as not ended', () => {
-    expect(isEndedRun({ ended_at: '' as any })).toBe(false);
+  it('classifies status=crashed as ended (EMU-13 new terminal status)', () => {
+    expect(isEndedRun({ status: 'crashed' })).toBe(true);
   });
 
-  it('ignores raw status field -- ended_at is the only signal', () => {
-    // Classic DC-14 RC4 shape: raw.status == "running" but ended_at set.
-    const contradiction = makeRun({
+  it('classifies status=running as not ended', () => {
+    expect(isEndedRun({ status: 'running' })).toBe(false);
+  });
+
+  it('classifies status=paused as not ended (stays in active tier)', () => {
+    expect(isEndedRun({ status: 'paused' })).toBe(false);
+  });
+
+  it('ignores ended_at presence/absence -- status is the only signal', () => {
+    // EMU-12 bug scenario: pipeline wrote ended_at on pause, but operator
+    // expects the run to stay in the active tier.  Predicate must be status
+    // based so ended_at on a paused run does NOT misclassify it as ended.
+    const pausedWithEndedAt = makeRun({
+      status: 'paused',
+      ended_at: '2026-04-14T06:00:00Z',
+    });
+    expect(isEndedRun(pausedWithEndedAt)).toBe(false);
+
+    // Inverse: status=completed but ended_at null -> still ended per status.
+    const completedWithoutEndedAt = makeRun({
+      status: 'completed',
+      ended_at: null as any,
+    });
+    expect(isEndedRun(completedWithoutEndedAt)).toBe(true);
+
+    // Running with a bogus ended_at -> still active per status.
+    const runningWithEndedAt = makeRun({
       status: 'running',
       ended_at: '2026-04-14T06:00:00Z',
     });
-    expect(isEndedRun(contradiction)).toBe(true);
-    // Inverse: status completed but ended_at null -> still active per predicate.
-    const reverse = makeRun({ status: 'completed', ended_at: null as any });
-    expect(isEndedRun(reverse)).toBe(false);
+    expect(isEndedRun(runningWithEndedAt)).toBe(false);
   });
 });
 
-describe('runBadgeText (EMU-5 T2)', () => {
-  it('returns "ENDED" when ended_at is a non-empty string', () => {
-    expect(runBadgeText(makeRun({ ended_at: '2026-04-14T06:00:00Z' }))).toBe('ENDED');
+describe('runBadgeText (EMU-13 T4)', () => {
+  it('returns "ENDED" when status is a terminal status', () => {
+    expect(runBadgeText(makeRun({ status: 'completed' }))).toBe('ENDED');
+    expect(runBadgeText(makeRun({ status: 'ended' }))).toBe('ENDED');
+    expect(runBadgeText(makeRun({ status: 'aborted' }))).toBe('ENDED');
+    expect(runBadgeText(makeRun({ status: 'crashed' }))).toBe('ENDED');
   });
 
-  it('returns "RUNNING" when ended_at is null', () => {
-    expect(runBadgeText(makeRun({ ended_at: null as any }))).toBe('RUNNING');
+  it('returns "RUNNING" when status is running', () => {
+    expect(runBadgeText(makeRun({ status: 'running' }))).toBe('RUNNING');
   });
 
-  it('returns "RUNNING" when ended_at is undefined', () => {
-    expect(runBadgeText(makeRun({ ended_at: undefined as any }))).toBe('RUNNING');
+  it('returns "PAUSED" when status is paused (EMU-12 paused coexistence)', () => {
+    expect(runBadgeText(makeRun({ status: 'paused' }))).toBe('PAUSED');
   });
 
-  // EMU-12 T4 paused coexistence: three-way badge must surface PAUSED
-  // (added to normalizeStatus by EMU-10) before falling through to the
-  // ENDED/RUNNING tier split.  Paused runs stay in the active tier but
-  // the badge reflects the operator-visible pause.
-  it('returns "PAUSED" when status is paused and ended_at is null (EMU-12 T4)', () => {
-    expect(runBadgeText(makeRun({ status: 'paused', ended_at: null as any }))).toBe('PAUSED');
-  });
-
-  it('returns "PAUSED" when status is paused regardless of undefined ended_at (EMU-12 T4)', () => {
-    expect(runBadgeText(makeRun({ status: 'paused', ended_at: undefined as any }))).toBe('PAUSED');
-  });
-
-  it('PAUSED takes precedence over ENDED when status=paused + ended_at set (EMU-12 T4)', () => {
-    // Defensive: if upstream ever writes both, operator pause wins at the badge
-    // level since Library tier already filtered the run to active via isEndedRun.
-    // This test documents the precedence rule.
-    expect(runBadgeText(makeRun({ status: 'paused', ended_at: '2026-04-14T06:00:00Z' }))).toBe('PAUSED');
+  // EMU-13 T4 defensive ordering: the paused check runs BEFORE isEndedRun,
+  // so even if 'paused' were ever accidentally added to TERMINAL_STATUSES,
+  // paused runs would still render PAUSED (belt-and-suspenders against
+  // future refactor regressions).
+  it('PAUSED wins over ENDED: status=paused always returns PAUSED regardless of ended_at', () => {
+    expect(
+      runBadgeText(makeRun({ status: 'paused', ended_at: '2026-04-14T06:00:00Z' }))
+    ).toBe('PAUSED');
+    expect(
+      runBadgeText(makeRun({ status: 'paused', ended_at: null as any }))
+    ).toBe('PAUSED');
+    expect(
+      runBadgeText(makeRun({ status: 'paused', ended_at: undefined as any }))
+    ).toBe('PAUSED');
   });
 });
 
 // Invariant: for any run, runBadgeText never disagrees with isEndedRun.
-// If a future refactor reintroduces status-field branching, this matrix
+// If a future refactor reintroduces ended_at-based branching, this matrix
 // test will fail loudly.
-describe('tier/badge invariant (EMU-5 T2)', () => {
+describe('tier/badge invariant (EMU-13 T1 + T4)', () => {
   const matrix: Array<{ label: string; run: Run; expectedEnded: boolean }> = [
     {
-      label: 'completed + ended_at ISO string',
+      label: 'status=completed',
       run: makeRun({ status: 'completed', ended_at: '2026-04-14T06:00:00Z' }),
       expectedEnded: true,
     },
     {
-      label: 'running + ended_at null',
+      label: 'status=ended (EMU-13)',
+      run: makeRun({ status: 'ended', ended_at: '2026-04-14T06:00:00Z' }),
+      expectedEnded: true,
+    },
+    {
+      label: 'status=aborted',
+      run: makeRun({ status: 'aborted', ended_at: '2026-04-14T06:00:00Z' }),
+      expectedEnded: true,
+    },
+    {
+      label: 'status=crashed (EMU-13)',
+      run: makeRun({ status: 'crashed', ended_at: '2026-04-14T06:00:00Z' }),
+      expectedEnded: true,
+    },
+    {
+      label: 'status=running + ended_at null',
       run: makeRun({ status: 'running', ended_at: null as any }),
       expectedEnded: false,
     },
     {
-      label: 'paused + ended_at null (BL-228 paused run)',
+      label: 'status=paused + ended_at null (BL-228 paused run)',
       run: makeRun({ status: 'paused', ended_at: null as any }),
       expectedEnded: false,
     },
     {
-      label: 'contradiction -- running + ended_at set (DC-14 RC4)',
+      label: 'status=paused + ended_at set (EMU-12 bug scenario)',
+      run: makeRun({ status: 'paused', ended_at: '2026-04-14T06:00:00Z' }),
+      expectedEnded: false,
+    },
+    {
+      label: 'status=running + ended_at set (contradiction -- status wins)',
       run: makeRun({ status: 'running', ended_at: '2026-04-14T06:00:00Z' }),
-      expectedEnded: true,
+      expectedEnded: false,
     },
     {
-      label: 'contradiction -- completed + ended_at null',
+      label: 'status=completed + ended_at null (contradiction -- status wins)',
       run: makeRun({ status: 'completed', ended_at: null as any }),
-      expectedEnded: false,
-    },
-    {
-      label: 'ended_at empty string (legacy bad data)',
-      run: makeRun({ status: 'completed', ended_at: '' as any }),
-      expectedEnded: false,
+      expectedEnded: true,
     },
   ];
 
@@ -218,9 +258,8 @@ describe('tier/badge invariant (EMU-5 T2)', () => {
       const tierEnded = isEndedRun(run);
       const badge = runBadgeText(run);
       expect(tierEnded).toBe(expectedEnded);
-      // Invariant (EMU-12 T4 adjusted for paused three-way):
-      //   - If status==paused -> badge is PAUSED regardless of tier (paused
-      //     short-circuits at the badge; run stays in active tier).
+      // Invariant (EMU-13 T4 three-way with defensive paused short-circuit):
+      //   - If status==paused -> badge is PAUSED regardless of tier.
       //   - Else: badge "ENDED" iff tier ended, "RUNNING" otherwise.
       if (run.status === 'paused') {
         expect(badge).toBe('PAUSED');
@@ -230,4 +269,28 @@ describe('tier/badge invariant (EMU-5 T2)', () => {
       }
     });
   }
+});
+
+// EMU-13 T4b: RunCard and RunDetail must derive badge text from the same
+// helper so their rendered badges cannot disagree.  Astro SFCs are awkward
+// to render under vitest, so assert via static import analysis -- both
+// components must import runBadgeText from utils/library.  If either
+// component stops importing it (regression to local branching), this test
+// fails loudly.
+describe('cross-component badge parity (EMU-13 T4b)', () => {
+  const repoRoot = resolve(__dirname, '..', '..');
+  function componentImportsRunBadgeText(relativePath: string): boolean {
+    const src = readFileSync(resolve(repoRoot, relativePath), 'utf8');
+    return /import\s*\{[^}]*\brunBadgeText\b[^}]*\}\s*from\s*['"][^'"]*utils\/library['"]/.test(
+      src
+    );
+  }
+
+  it('RunCard.astro imports runBadgeText from utils/library', () => {
+    expect(componentImportsRunBadgeText('components/RunCard.astro')).toBe(true);
+  });
+
+  it('RunDetail.astro imports runBadgeText from utils/library', () => {
+    expect(componentImportsRunBadgeText('components/RunDetail.astro')).toBe(true);
+  });
 });
