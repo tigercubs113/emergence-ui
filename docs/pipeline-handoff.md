@@ -1,15 +1,46 @@
 ---
-status: BUILDER_DONE
+status: IDLE
 pi: EMU-13
 type: bugfix-product-direction
 file_limit: 0
 build_spec: docs/emu13-build-spec.md
-updated_by: builder
-updated_at: 2026-04-20T22:40:03Z
+updated_by: planner
+updated_at: 2026-04-20T22:55:00Z
 error: null
 ---
 
-## BUILDER_DONE -- EMU-13
+## EMU-13 CLOSED
+
+Planner reviewed builder report.  All tasks PASS plus one bonus fix (T4b: RunDetail badge also routed through runBadgeText for cross-component consistency).  Final master SHA: `44ae086`.  Vitest 155/0.
+
+### Commits on emergence-ui master
+
+- `44ae086` EMU-13: status-based isEndedRun + defensive runBadgeText + RunDetail stat-block binding + normalize.ts fix + tests
+
+### Resolution map
+
+- **BL-007 code layer:** FULLY remediated.  Status-based predicate, correct PAUSED rendering everywhere, RunDetail stat-block binding.  DC-17 + ES-22 submodule bumps will propagate to consumer sites.
+- **BL-231 (status-based tier predicate):** RESOLVED via EMU-13 T1+T2.
+- **BL-232 (freshness predicate):** still open; Drew input on threshold value needed.
+- **BL-344 (project-emergence pipeline ended_at writes):** still open; cross-repo.
+
+### Scope-creep notes
+
+T4b (RunDetail badge consistency) and the normalize.ts allow-list fix were not in the spec but strictly necessary for T1 to work end-to-end.  Builder flagged both in deviations.  Planner accepts.
+
+### Bonus catch
+
+`normalizeStatus` was coercing 'ended' + 'crashed' to 'running', which would have silently broken T1 predicate at the loader layer.  T5 tests caught it.  Good systematic fix.
+
+### Next
+
+Planner dispatches DC-17 + ES-22 submodule bumps in parallel, both pointing at `44ae086`.  Expected T3 success on both this time (badge PAUSED, detail page stat-block populated for run-2).
+
+---
+
+## Prior handoff content follows:
+
+## EMU-13 BUILDER_DONE summary
 
 Final master SHA: 44ae086
 
