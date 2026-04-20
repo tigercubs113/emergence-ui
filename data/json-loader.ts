@@ -21,6 +21,7 @@ import {
   filterInternalNeeds,
 } from '../utils/normalize.js';
 import { formatNeedLabel } from '../utils/format.js';
+import { isEndedRun } from '../utils/library.js';
 
 interface JsonLoaderConfig {
   runsJson: any;                          // Contents of runs.json
@@ -54,6 +55,53 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
       };
     }
     return { routes: {}, fallback: { provider: '', model: '' } };
+  }
+
+  // EMU-5 T3: warn exactly once per orphan run_number per loader instance.
+  // runs.json may reference run_numbers with no on-disk manifest (pipeline
+  // drift, e.g. runs 19-22, 25 at time of DC-14).  We filter those out at
+  // the loader layer so Hub and getStaticPaths both benefit, and log so
+  // drift is observable without spamming the build output.
+  const warnedOrphans = new Set<number>();
+
+  // Locate a run's manifest object by run_number.  Returns undefined (NOT
+  // an empty object) when no manifest key exists in runDataDir -- used by
+  // the orphan filter.  getRun's existing behaviour (fallback to {}) is
+  // preserved by callers that want it.
+  function findManifest(runNumber: number): any | undefined {
+    const manifestKey = Object.keys(runDataDir).find(k =>
+      k.includes(`run-${runNumber}`) && k.includes('manifest')
+    );
+    if (!manifestKey) return undefined;
+    return runDataDir[manifestKey];
+  }
+
+  // EMU-5 T1: merge manifest values over runs.json row so RunCard + any
+  // listing-level consumer shows real tick_count / sim_days instead of 0.
+  // runs.json tick_count / sim_days frequently lag the manifest (pipeline
+  // only writes them on run end), so when runs.json says 0 or missing we
+  // fall back to the manifest-derived value.  Mirrors getRun's derivation
+  // (total_ticks + config_snapshot.clock.ticks_per_day).
+  function mapRunWithManifest(raw: any): Run {
+    const base = mapRun(raw);
+    const manifest = findManifest(raw.run_number);
+    if (!manifest) return base;
+
+    const manifestTickCount = manifest.total_ticks ?? 0;
+    const ticksPerDay = manifest.config_snapshot?.clock?.ticks_per_day ?? 100;
+    const tickCount = base.tick_count || manifestTickCount;
+    const simDays = base.sim_days || (tickCount
+      ? parseFloat((tickCount / ticksPerDay).toFixed(1))
+      : 0);
+
+    return {
+      ...base,
+      tick_count: tickCount,
+      sim_days: simDays,
+      agent_count: base.agent_count || (manifest.agents_initial ?? manifest.initial_agents ?? []).length,
+      prng_seed: base.prng_seed || (manifest.config_snapshot?.seed ?? 0),
+      wall_clock_ms: base.wall_clock_ms || (manifest.wall_clock_ms ?? 0),
+    };
   }
 
   function mapRun(raw: any): Run {
@@ -127,7 +175,26 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
 
   return {
     async listRuns(): Promise<Run[]> {
-      return (runsJson.runs ?? []).map(mapRun).sort((a, b) => b.run_number - a.run_number);
+      // EMU-5 T3: drop runs with no on-disk manifest (orphans from runs.json
+      // drift).  Warn exactly once per orphan per process so the issue stays
+      // observable.  EMU-5 T1: merged-manifest mapper fills tick_count /
+      // sim_days from manifest when runs.json row is stale.
+      const raw = (runsJson.runs ?? []) as any[];
+      const kept: Run[] = [];
+      for (const r of raw) {
+        if (!findManifest(r.run_number)) {
+          if (!warnedOrphans.has(r.run_number)) {
+            warnedOrphans.add(r.run_number);
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[emergence-ui] runs.json references run_number ${r.run_number} but no manifest found; filtering from listing.`
+            );
+          }
+          continue;
+        }
+        kept.push(mapRunWithManifest(r));
+      }
+      return kept.sort((a, b) => b.run_number - a.run_number);
     },
 
     async getRun(id: string): Promise<RunDetail> {
@@ -365,15 +432,20 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
     },
 
     async listActiveRuns(): Promise<Run[]> {
-      // Active = ended_at is explicitly null OR absent.  Matches DC-5 Now Running tier.
+      // Active = not ended.  Shares the isEndedRun predicate with the Library
+      // tier + RunCard badge so no consumer can see a run classified
+      // differently from another (EMU-5 T2).  Orphan filter is applied by
+      // listRuns.
       const all = await this.listRuns();
-      return all.filter(r => r.ended_at === null || r.ended_at === undefined);
+      return all.filter(r => !isEndedRun(r));
     },
 
     async listEndedRuns(): Promise<Run[]> {
-      // Ended = ended_at is a non-empty string (ISO timestamp).  Matches Library tier.
+      // Ended = ended_at is a non-empty ISO string.  Single source of truth
+      // is isEndedRun in utils/library.ts; RunCard badge reads the same
+      // predicate (EMU-5 T2).  Orphan filter is applied by listRuns.
       const all = await this.listRuns();
-      return all.filter(r => typeof r.ended_at === 'string' && r.ended_at.length > 0);
+      return all.filter(isEndedRun);
     },
 
     async getActiveRunDashboard(runId: string): Promise<DispatchSummary | null> {

@@ -9,6 +9,25 @@
 
 import type { Run } from '../data/types.js';
 
+// Single source of truth for run lifecycle classification (EMU-5 T2).
+// A run is "ended" when runs.json (or the upstream source) has written a
+// non-empty ISO string into ended_at.  null/undefined/empty string all mean
+// the run is still active.  Both the Library tier filter and RunCard's status
+// badge derive from this predicate so the two UI surfaces cannot disagree
+// (DC-14 RC4: raw status=="running" while ended_at was a string -> badge
+// contradicted tier).
+export function isEndedRun(run: Pick<Run, 'ended_at'>): boolean {
+  return typeof run.ended_at === 'string' && run.ended_at.length > 0;
+}
+
+// Badge text derived from the same tier predicate (EMU-5 T2).  Extracted so
+// RunCard.astro's badge binding is testable without an Astro container
+// renderer.  Binary ENDED/RUNNING -- utils/library has no paused concept
+// (card-level paused styling is orthogonal to tier and lives on raw status).
+export function runBadgeText(run: Pick<Run, 'ended_at'>): 'ENDED' | 'RUNNING' {
+  return isEndedRun(run) ? 'ENDED' : 'RUNNING';
+}
+
 export type LibraryState =
   | { kind: 'empty' }
   | { kind: 'list'; runs: Run[] };

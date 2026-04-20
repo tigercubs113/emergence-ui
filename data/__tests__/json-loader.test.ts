@@ -1,5 +1,5 @@
 // data/__tests__/json-loader.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createJsonLoader } from '../json-loader.js';
 
 import runsJson from './fixtures/runs.json';
@@ -58,7 +58,12 @@ const mockRunsJson = {
 describe('createJsonLoader', () => {
   describe('listRuns', () => {
     it('listRuns returns typed Run array', async () => {
-      const loader = createJsonLoader({ runsJson: mockRunsJson, runDataDir: {} });
+      // EMU-5 T3: listRuns now filters runs whose run_number has no on-disk
+      // manifest.  Supply a stub manifest so the orphan filter keeps the row.
+      const loader = createJsonLoader({
+        runsJson: mockRunsJson,
+        runDataDir: { 'run-19/manifest.json': {} },
+      });
       const runs = await loader.listRuns();
       expect(runs).toHaveLength(1);
       expect(runs[0].id).toBe('bcf25057-2c03-4e70-b147-169a95383f61');
@@ -386,6 +391,244 @@ describe('createJsonLoader', () => {
     it('throws when run id is missing', async () => {
       const loader = makeLoader();
       await expect(loader.getRelationships('does-not-exist')).rejects.toThrow(/Run not found/);
+    });
+  });
+
+  // EMU-5 T1: listRuns must merge manifest tick_count / sim_days over the
+  // runs.json row so RunCard + any listing-level consumer shows real values
+  // instead of the stale/zero row.  Components are hard to unit-test with
+  // Vitest; asserting at the loader layer covers what the component receives.
+  describe('listRuns manifest merge (EMU-5 T1)', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('manifest total_ticks wins when runs.json row has tick_count: 0', async () => {
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'merge-zero',
+            run_number: 42,
+            status: 'running',
+            tick_count: 0,
+            sim_days: 0,
+            ended_at: null,
+          },
+        ],
+      };
+      const dir = {
+        'run-42/manifest.json': {
+          total_ticks: 200,
+          config_snapshot: { clock: { ticks_per_day: 100 } },
+          agents_initial: [],
+        },
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: dir });
+      const runs = await loader.listRuns();
+      expect(runs).toHaveLength(1);
+      expect(runs[0].tick_count).toBe(200);
+    });
+
+    it('manifest total_ticks wins when runs.json row omits tick_count entirely', async () => {
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'merge-missing',
+            run_number: 43,
+            status: 'running',
+            ended_at: null,
+            // tick_count / sim_days intentionally absent
+          },
+        ],
+      };
+      const dir = {
+        'run-43/manifest.json': {
+          total_ticks: 350,
+          config_snapshot: { clock: { ticks_per_day: 100 } },
+          agents_initial: [],
+        },
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: dir });
+      const runs = await loader.listRuns();
+      expect(runs[0].tick_count).toBe(350);
+    });
+
+    it('derives sim_days from merged tick_count / ticks_per_day', async () => {
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'merge-simdays',
+            run_number: 44,
+            status: 'running',
+            tick_count: 0,
+            sim_days: 0,
+            ended_at: null,
+          },
+        ],
+      };
+      const dir = {
+        'run-44/manifest.json': {
+          total_ticks: 250,
+          config_snapshot: { clock: { ticks_per_day: 100 } },
+          agents_initial: [],
+        },
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: dir });
+      const runs = await loader.listRuns();
+      expect(runs[0].sim_days).toBeCloseTo(2.5);
+    });
+
+    it('preserves non-zero runs.json tick_count (does not clobber with stale manifest)', async () => {
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'merge-keep',
+            run_number: 45,
+            status: 'completed',
+            tick_count: 500,
+            sim_days: 5,
+            ended_at: '2026-04-14T06:00:00Z',
+          },
+        ],
+      };
+      const dir = {
+        'run-45/manifest.json': {
+          total_ticks: 100, // stale -- should NOT win
+          config_snapshot: { clock: { ticks_per_day: 100 } },
+          agents_initial: [],
+        },
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: dir });
+      const runs = await loader.listRuns();
+      expect(runs[0].tick_count).toBe(500);
+      expect(runs[0].sim_days).toBe(5);
+    });
+  });
+
+  // EMU-5 T3: listRuns drops runs whose run_number has no on-disk manifest
+  // (runs.json drift, e.g. DC-14 runs 19-22, 25).  console.warn fires exactly
+  // once per orphan per loader instance.  Other I/O / parse errors must NOT
+  // be silently swallowed by this filter.
+  describe('listRuns orphan filter (EMU-5 T3)', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('drops runs.json rows whose run_number has no manifest', async () => {
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'keep-001',
+            run_number: 1,
+            status: 'completed',
+            ended_at: '2026-04-14T06:00:00Z',
+          },
+          {
+            run_id: 'orphan-099',
+            run_number: 99,
+            status: 'completed',
+            ended_at: '2026-04-14T06:00:00Z',
+          },
+        ],
+      };
+      const dir = {
+        'run-1/manifest.json': { agents_initial: [] },
+        // run-99 manifest intentionally absent
+      };
+      // Silence warn for this assertion-focused case.
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: dir });
+      const runs = await loader.listRuns();
+      expect(runs).toHaveLength(1);
+      expect(runs.map(r => r.run_number)).toEqual([1]);
+      expect(runs.map(r => r.run_number)).not.toContain(99);
+    });
+
+    it('console.warn fires exactly once per orphan run_number', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'orphan-99',
+            run_number: 99,
+            status: 'completed',
+            ended_at: '2026-04-14T06:00:00Z',
+          },
+        ],
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: {} });
+      await loader.listRuns();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const msg = String(warnSpy.mock.calls[0][0]);
+      expect(msg).toContain('99');
+      expect(msg).toContain('manifest');
+    });
+
+    it('dedupes warn across multiple listRuns calls on the same loader instance', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'orphan-99',
+            run_number: 99,
+            status: 'completed',
+            ended_at: '2026-04-14T06:00:00Z',
+          },
+        ],
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: {} });
+      await loader.listRuns();
+      await loader.listRuns();
+      await loader.listRuns();
+      // Single warn per orphan per loader instance, even across repeated calls.
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('warns once per distinct orphan run_number (not once per call)', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const runsRow = {
+        runs: [
+          { run_id: 'orphan-19', run_number: 19, status: 'completed', ended_at: 'x' },
+          { run_id: 'orphan-20', run_number: 20, status: 'completed', ended_at: 'x' },
+          { run_id: 'orphan-19-again', run_number: 19, status: 'completed', ended_at: 'x' },
+        ],
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: {} });
+      await loader.listRuns();
+      // run_number 19 appears twice in runs.json but warns only once;
+      // run_number 20 warns once.
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+      const allArgs = warnSpy.mock.calls.map(c => String(c[0])).join('\n');
+      expect(allArgs).toContain('19');
+      expect(allArgs).toContain('20');
+    });
+
+    it('does not silently filter runs whose manifest exists but has missing fields', async () => {
+      // A manifest that parses successfully but has no useful fields must NOT
+      // trigger the orphan filter -- that filter is targeted at missing
+      // manifests (ENOENT-equivalent), not at runtime data quality issues.
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const runsRow = {
+        runs: [
+          {
+            run_id: 'sparse-1',
+            run_number: 55,
+            status: 'completed',
+            tick_count: 100,
+            sim_days: 1,
+            ended_at: '2026-04-14T06:00:00Z',
+          },
+        ],
+      };
+      const dir = {
+        'run-55/manifest.json': {}, // present but empty -- loader must keep this run
+      };
+      const loader = createJsonLoader({ runsJson: runsRow, runDataDir: dir });
+      const runs = await loader.listRuns();
+      expect(runs).toHaveLength(1);
+      expect(runs[0].run_number).toBe(55);
+      // No orphan warning because the manifest is present.
+      expect(warnSpy).not.toHaveBeenCalled();
     });
   });
 });

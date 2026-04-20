@@ -55,7 +55,14 @@ describe('reporting tiers', () => {
           { run_id: 'legacy-2', run_number: 2, status: 'completed', ended_at: '2026-04-10T00:00:00Z' },
         ],
       };
-      const loader = createJsonLoader({ runsJson: legacy, runDataDir: {} });
+      // EMU-5 T3: orphan filter requires a manifest per run_number.
+      const loader = createJsonLoader({
+        runsJson: legacy,
+        runDataDir: {
+          'run-1/manifest.json': {},
+          'run-2/manifest.json': {},
+        },
+      });
       const active = await loader.listActiveRuns();
       expect(active).toHaveLength(1);
       expect(active[0].id).toBe('legacy-1');

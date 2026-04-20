@@ -2,6 +2,7 @@
 // emergence-ui/components/RunCard.astro
 import type { Run } from '../data/types';
 import { formatDuration } from '../utils/format';
+import { isEndedRun, runBadgeText } from '../utils/library';
 
 interface Props {
   run: Run;
@@ -10,7 +11,14 @@ interface Props {
 
 const { run, basePath } = Astro.props;
 const href = `${basePath}/run/${run.run_number}/`;
-const badgeClass = `em-badge em-badge--${run.status}`;
+// EMU-5 T2: badge text + class derive from the same tier predicate that
+// listEndedRuns uses so the badge can never contradict the Library tier
+// classification (DC-14 RC4).  utils/library has no paused concept, so the
+// badge is binary ENDED vs RUNNING.  Card-level paused styling (BL-228)
+// stays on the raw status field since it is orthogonal to tier.
+const ended = isEndedRun(run);
+const badgeText = runBadgeText(run);
+const badgeClass = ended ? 'em-badge em-badge--ended' : 'em-badge em-badge--running';
 // BL-228: paused runs get a complementary card treatment beside the badge.
 const cardClass = run.status === 'paused' ? 'em-card em-card--paused' : 'em-card';
 ---
@@ -22,7 +30,7 @@ const cardClass = run.status === 'paused' ? 'em-card em-card--paused' : 'em-card
         {run.id.slice(0, 8)} &middot; {run.tick_count} ticks &middot; {run.sim_days.toFixed(1)} days &middot; {run.agent_count} agents &middot; Seed {run.prng_seed}
       </div>
     </div>
-    <div class={badgeClass}>{run.status.toUpperCase()}</div>
+    <div class={badgeClass}>{badgeText}</div>
   </div>
   {run.summary && <div class="em-subtitle" style="margin-top: 8px;">{run.summary}</div>}
 </a>

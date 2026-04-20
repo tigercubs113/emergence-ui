@@ -58,6 +58,8 @@
 .em-badge--running { background: rgba(124, 172, 248, 0.15); color: var(--em-link); }
 .em-badge--paused { background: rgba(200, 180, 80, 0.15); color: #c8b450; }
 .em-badge--aborted { background: rgba(224, 80, 80, 0.15); color: var(--em-danger); }
+/* EMU-5: binary tier badge -- ENDED covers completed/aborted/error/interrupted. */
+.em-badge--ended { background: rgba(80, 200, 120, 0.15); color: var(--em-success); }
 
 /* Health bar */
 .em-health-bar {

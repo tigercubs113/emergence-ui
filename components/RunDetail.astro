@@ -2,6 +2,7 @@
 // emergence-ui/components/RunDetail.astro
 import type { RunDetail as RunDetailType } from '../data/types';
 import { formatDuration, formatTickRange } from '../utils/format';
+import { isEndedRun } from '../utils/library';
 import AgentCard from './AgentCard.astro';
 
 interface Props {
@@ -11,6 +12,11 @@ interface Props {
 
 const { run, basePath } = Astro.props;
 const runPath = `${basePath}/run/${run.run_number}`;
+// EMU-5 T2: same single-source-of-truth predicate as RunCard so the detail
+// header badge agrees with the Library tier classification.
+const ended = isEndedRun(run);
+const badgeText = ended ? 'ENDED' : 'RUNNING';
+const badgeClass = ended ? 'em-badge em-badge--ended' : 'em-badge em-badge--running';
 ---
 <div class="em-container">
   <!-- Breadcrumb -->
@@ -25,7 +31,7 @@ const runPath = `${basePath}/run/${run.run_number}`;
         <h1 class="em-h1">{run.name}</h1>
         <div class="em-mono" style="margin-top: 8px;">{run.id}</div>
       </div>
-      <div class={`em-badge em-badge--${run.status}`}>{run.status.toUpperCase()}</div>
+      <div class={badgeClass}>{badgeText}</div>
     </div>
 
     <!-- Metadata -->

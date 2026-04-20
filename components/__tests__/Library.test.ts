@@ -12,6 +12,8 @@ import {
   deriveLibraryState,
   formatLibrarySubtitle,
   shouldUseTieredLayout,
+  isEndedRun,
+  runBadgeText,
 } from '../../utils/library.js';
 
 function makeRun(overrides: Partial<Run> = {}): Run {
@@ -106,4 +108,100 @@ describe('shouldUseTieredLayout', () => {
     expect(shouldUseTieredLayout(undefined, undefined)).toBe(false);
     expect(shouldUseTieredLayout(null, null)).toBe(false);
   });
+});
+
+// EMU-5 T2: the tier predicate and the RunCard badge must derive from a
+// single source of truth so the badge can never contradict the tier a run
+// was classified into (DC-14 RC4).
+describe('isEndedRun (EMU-5 T2)', () => {
+  it('classifies a run with a non-empty ended_at string as ended', () => {
+    expect(isEndedRun({ ended_at: '2026-04-14T06:00:00Z' })).toBe(true);
+  });
+
+  it('classifies a run with ended_at === null as not ended', () => {
+    expect(isEndedRun({ ended_at: null as any })).toBe(false);
+  });
+
+  it('classifies a run with ended_at === undefined as not ended', () => {
+    expect(isEndedRun({ ended_at: undefined as any })).toBe(false);
+  });
+
+  it('classifies a run with an empty-string ended_at as not ended', () => {
+    expect(isEndedRun({ ended_at: '' as any })).toBe(false);
+  });
+
+  it('ignores raw status field -- ended_at is the only signal', () => {
+    // Classic DC-14 RC4 shape: raw.status == "running" but ended_at set.
+    const contradiction = makeRun({
+      status: 'running',
+      ended_at: '2026-04-14T06:00:00Z',
+    });
+    expect(isEndedRun(contradiction)).toBe(true);
+    // Inverse: status completed but ended_at null -> still active per predicate.
+    const reverse = makeRun({ status: 'completed', ended_at: null as any });
+    expect(isEndedRun(reverse)).toBe(false);
+  });
+});
+
+describe('runBadgeText (EMU-5 T2)', () => {
+  it('returns "ENDED" when ended_at is a non-empty string', () => {
+    expect(runBadgeText(makeRun({ ended_at: '2026-04-14T06:00:00Z' }))).toBe('ENDED');
+  });
+
+  it('returns "RUNNING" when ended_at is null', () => {
+    expect(runBadgeText(makeRun({ ended_at: null as any }))).toBe('RUNNING');
+  });
+
+  it('returns "RUNNING" when ended_at is undefined', () => {
+    expect(runBadgeText(makeRun({ ended_at: undefined as any }))).toBe('RUNNING');
+  });
+});
+
+// Invariant: for any run, runBadgeText never disagrees with isEndedRun.
+// If a future refactor reintroduces status-field branching, this matrix
+// test will fail loudly.
+describe('tier/badge invariant (EMU-5 T2)', () => {
+  const matrix: Array<{ label: string; run: Run; expectedEnded: boolean }> = [
+    {
+      label: 'completed + ended_at ISO string',
+      run: makeRun({ status: 'completed', ended_at: '2026-04-14T06:00:00Z' }),
+      expectedEnded: true,
+    },
+    {
+      label: 'running + ended_at null',
+      run: makeRun({ status: 'running', ended_at: null as any }),
+      expectedEnded: false,
+    },
+    {
+      label: 'paused + ended_at null (BL-228 paused run)',
+      run: makeRun({ status: 'paused', ended_at: null as any }),
+      expectedEnded: false,
+    },
+    {
+      label: 'contradiction -- running + ended_at set (DC-14 RC4)',
+      run: makeRun({ status: 'running', ended_at: '2026-04-14T06:00:00Z' }),
+      expectedEnded: true,
+    },
+    {
+      label: 'contradiction -- completed + ended_at null',
+      run: makeRun({ status: 'completed', ended_at: null as any }),
+      expectedEnded: false,
+    },
+    {
+      label: 'ended_at empty string (legacy bad data)',
+      run: makeRun({ status: 'completed', ended_at: '' as any }),
+      expectedEnded: false,
+    },
+  ];
+
+  for (const { label, run, expectedEnded } of matrix) {
+    it(`tier and badge agree: ${label}`, () => {
+      const tierEnded = isEndedRun(run);
+      const badge = runBadgeText(run);
+      expect(tierEnded).toBe(expectedEnded);
+      // Invariant: badge "ENDED" iff tier ended.
+      expect(badge === 'ENDED').toBe(tierEnded);
+      expect(badge === 'RUNNING').toBe(!tierEnded);
+    });
+  }
 });
