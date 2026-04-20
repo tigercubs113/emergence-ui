@@ -1,6 +1,7 @@
 // data/__tests__/json-loader.test.ts
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createJsonLoader } from '../json-loader.js';
+import { runBadgeText, runBadgeClass } from '../../utils/library.js';
 
 import runsJson from './fixtures/runs.json';
 import run1Manifest from './fixtures/run-1-manifest.json';
@@ -693,6 +694,108 @@ describe('createJsonLoader', () => {
       expect(runs[0].run_number).toBe(55);
       // No orphan warning because the manifest is present.
       expect(warnSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // EMU-14: live-render invariant.  The pre-EMU-14 gap was that runs.json
+  // rows stay at status:"running" after a pause while the on-disk manifest
+  // flips to status:"paused".  mapRunWithManifest + getRun merged numeric
+  // manifest fields but not status, so the merged Run object carried the
+  // stale runs.json status.  runBadgeText / runBadgeClass (the render-time
+  // helpers) never saw "paused", and the Hub card + detail page rendered
+  // RUNNING.  These tests exercise the loader pipeline end-to-end with the
+  // live shape so any future regression is caught before the submodule
+  // bumps.
+  describe('manifest.status propagation (EMU-14)', () => {
+    const pausedRunsJson = {
+      runs: [
+        {
+          run_id: 'paused-run-001',
+          run_number: 42,
+          name: 'Paused Run',
+          // Live shape: runs.json still says "running" after the pipeline
+          // pauses the run.  The on-disk manifest (below) is the fresh
+          // source.
+          status: 'running',
+          tick_count: 0,
+          agent_count: 0,
+          agents_alive: 0,
+          seed: 7,
+          wall_clock_ms: 0,
+          sim_days: 0,
+          summary: '',
+          created_at: '2026-04-20T00:00:00Z',
+          ended_at: null,
+        },
+      ],
+    };
+    const pausedManifest = {
+      // Manifest has flipped to paused.  mapRunWithManifest + getRun must
+      // honor this over the stale runs.json status.
+      status: 'paused',
+      total_ticks: 180,
+      agents_initial: [{ name: 'Aria' }, { name: 'Ben' }],
+      config_snapshot: { seed: 7, clock: { ticks_per_day: 100 } },
+      wall_clock_ms: 90_000,
+    };
+    const pausedDir = {
+      'run-42/manifest.json': pausedManifest,
+    };
+
+    it('listRuns propagates manifest.status when runs.json is stale', async () => {
+      const loader = createJsonLoader({ runsJson: pausedRunsJson, runDataDir: pausedDir });
+      const runs = await loader.listRuns();
+      expect(runs).toHaveLength(1);
+      // Assertion A: merged Run.status reflects the manifest, not runs.json.
+      expect(runs[0].status).toBe('paused');
+      // Assertion B: the merged run fed to runBadgeText returns "PAUSED".
+      expect(runBadgeText(runs[0])).toBe('PAUSED');
+      // Assertion C: the merged run fed to runBadgeClass contains paused class.
+      expect(runBadgeClass(runs[0])).toContain('em-badge--paused');
+    });
+
+    it('getRun propagates manifest.status when runs.json is stale', async () => {
+      const loader = createJsonLoader({ runsJson: pausedRunsJson, runDataDir: pausedDir });
+      const run = await loader.getRun('paused-run-001');
+      expect(run.status).toBe('paused');
+      expect(runBadgeText(run)).toBe('PAUSED');
+      expect(runBadgeClass(run)).toContain('em-badge--paused');
+    });
+
+    it('falls back to runs.json status when manifest lacks status', async () => {
+      // Defensive: a manifest without status should not clobber the
+      // runs.json value.  Keeps back-compat with legacy manifests.
+      const legacyManifest = {
+        total_ticks: 200,
+        agents_initial: [],
+        config_snapshot: { seed: 7, clock: { ticks_per_day: 100 } },
+        wall_clock_ms: 0,
+      };
+      const legacyRunsJson = {
+        runs: [
+          {
+            run_id: 'legacy-run-001',
+            run_number: 99,
+            name: 'Legacy Run',
+            status: 'completed',
+            tick_count: 200,
+            agent_count: 0,
+            agents_alive: 0,
+            seed: 7,
+            wall_clock_ms: 0,
+            sim_days: 2,
+            summary: '',
+            created_at: '2026-04-20T00:00:00Z',
+            ended_at: '2026-04-20T00:10:00Z',
+          },
+        ],
+      };
+      const loader = createJsonLoader({
+        runsJson: legacyRunsJson,
+        runDataDir: { 'run-99/manifest.json': legacyManifest },
+      });
+      const runs = await loader.listRuns();
+      expect(runs[0].status).toBe('completed');
     });
   });
 });

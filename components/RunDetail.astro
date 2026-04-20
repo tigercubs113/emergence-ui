@@ -2,7 +2,7 @@
 // emergence-ui/components/RunDetail.astro
 import type { RunDetail as RunDetailType } from '../data/types';
 import { formatDuration, formatTickRange } from '../utils/format';
-import { isEndedRun, runBadgeText } from '../utils/library';
+import { runBadgeClass, runBadgeText } from '../utils/library';
 import AgentCard from './AgentCard.astro';
 
 interface Props {
@@ -12,17 +12,11 @@ interface Props {
 
 const { run, basePath } = Astro.props;
 const runPath = `${basePath}/run/${run.run_number}`;
-// EMU-13 T4: delegate badge text to runBadgeText so RunDetail agrees with
-// RunCard for paused runs (PAUSED) as well as ENDED/RUNNING.  Single source
-// of truth across card + detail surfaces.
+// EMU-13 T4 + EMU-14: badge text + class both delegate to shared helpers
+// in utils/library so RunCard + RunDetail cannot drift.  runBadgeClass is
+// the three-way paused / ended / running counterpart to runBadgeText.
 const badgeText = runBadgeText(run);
-const ended = isEndedRun(run);
-const badgeClass =
-  run.status === 'paused'
-    ? 'em-badge em-badge--paused'
-    : ended
-      ? 'em-badge em-badge--ended'
-      : 'em-badge em-badge--running';
+const badgeClass = runBadgeClass(run);
 ---
 <div class="em-container">
   <!-- Breadcrumb -->

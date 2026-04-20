@@ -96,6 +96,11 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
 
     return {
       ...base,
+      // EMU-14: manifest.status wins over runs.json status.  runs.json rows
+      // are not rewritten on pause (pipeline only updates numeric totals on
+      // run end), so the manifest is the fresh source for lifecycle status.
+      // Fall back to base.status (already normalized) when manifest lacks it.
+      status: manifest.status ? normalizeStatus(manifest.status) : base.status,
       tick_count: tickCount,
       sim_days: simDays,
       agent_count: base.agent_count || (manifest.agents_initial ?? manifest.initial_agents ?? []).length,
@@ -264,6 +269,11 @@ export function createJsonLoader(config: JsonLoaderConfig): DataLoader {
       const base = mapRun(rawRun);
       return {
         ...base,
+        // EMU-14: manifest.status wins over runs.json status (mirrors
+        // mapRunWithManifest).  Keeps RunDetail's header badge in sync with
+        // RunCard's badge for paused runs whose runs.json row still says
+        // "running".
+        status: manifest.status ? normalizeStatus(manifest.status) : base.status,
         tick_count: base.tick_count || tickCount,
         sim_days: base.sim_days || parseFloat((tickCount / ticksPerDay).toFixed(1)),
         agent_count: base.agent_count || agentCount,

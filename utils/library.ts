@@ -42,6 +42,19 @@ export function runBadgeText(
   return 'RUNNING';
 }
 
+// EMU-14: badge CSS class derived from the same predicate stack as
+// runBadgeText so RunCard + RunDetail cannot drift.  Paused wins first
+// (belt-and-suspenders -- mirrors runBadgeText order), then ended, then
+// running.  Single source of truth replaces the prior binary ternary in
+// RunCard.astro and the inline three-way in RunDetail.astro.
+export function runBadgeClass(
+  run: Pick<Run, 'status'>
+): 'em-badge em-badge--paused' | 'em-badge em-badge--ended' | 'em-badge em-badge--running' {
+  if (run.status === 'paused') return 'em-badge em-badge--paused';
+  if (isEndedRun(run)) return 'em-badge em-badge--ended';
+  return 'em-badge em-badge--running';
+}
+
 export type LibraryState =
   | { kind: 'empty' }
   | { kind: 'list'; runs: Run[] };
