@@ -1,26 +1,89 @@
 ---
-status: IDLE
-pi: EMU-5
-type: bugfix
+status: BUILDER_DONE
+pi: EMU-12
+type: integration
 file_limit: 0
-build_spec: docs/emu5-build-spec.md
-updated_by: planner
-updated_at: 2026-04-20T19:45:00Z
-error: divergence-resolved-on-branch
+build_spec: docs/emu12-build-spec.md
+updated_by: builder
+updated_at: 2026-04-20T21:55:00Z
+error: null
 ---
 
-## EMU-5 WORK PRESERVED ON BRANCH -- NOT MERGED TO MASTER
+## BUILDER_DONE -- EMU-12
 
-**What happened:** Planner scoped EMU-5 for BL-007 (stat-block field binding, tier/badge reconciliation, orphan filter).  Local repo was stale -- master was at `86c263c` (EMU-4 plan catch-up) while origin had advanced to `77d9b34` (EMU-11: json-loader tolerates string model_config).  Builder worked against the stale base and shipped `cfd36c5` + close commit `da6dbeb`.  Merge attempt revealed conflict in `data/json-loader.ts` (both EMU-5 and EMU-11 touched it).
+Final master SHA: pending (this commit).  Will be recorded after push.
+Commits on master:
+- `407bdfa` EMU-12: BL-007 remediation rebased onto EMU-11
+- `9ecec23` EMU-12 T4: runBadgeText three-way for paused coexistence
+- (this commit) EMU-12: token report + BUILDER_DONE
 
-**Action taken:** Per autonomous-loop `AMBIGUOUS folds into DESIGN` rule, did NOT resolve conflict blind.  Work preserved at branch `emu5-bl007-preserve` (pushed to origin).  Master hard-reset to `origin/master` (77d9b34).  EMU-5 code stays intact on branch for manual merge-and-rename review on Drew's return.
+### Conflict resolution
 
-**Backlog filed:** integration PI to (a) rebase EMU-5 onto EMU-11, resolve json-loader conflict, (b) renumber to EMU-12 since EMU-5 is taken by an older unrelated commit (`a1858ab EMU-5: feat: Hub, Attribution, and RunCard components`), (c) verify paused-badge coexistence with EMU-10's normalizeStatus paused handling.
+`data/json-loader.ts` conflicted in one hunk (the helper definition region
+at the top of `createJsonLoader`).  Both sides were orthogonal in intent
+and preserved verbatim: EMU-11's `normalizeModelConfig` helper kept,
+followed by EMU-5's `warnedOrphans` Set + `findManifest` + `mapRunWithManifest`.
+`mapRun` continues to call `normalizeModelConfig(raw.model_config)` -- EMU-11
+string tolerance preserved.  `listRuns` uses `mapRunWithManifest` with
+orphan filter + once-per-run dedup warn -- EMU-5 semantics preserved.  No
+semantic tradeoff surfaced.
 
-**Consumer PIs revised:** drewconrad.us DC-15 bumps submodule to `77d9b34` (EMU-11, small delta from 86c263c) + prunes runs.json orphans + commits manifest drift.  echoit-site ES-X prunes runs.json only (already at 77d9b34, no bump needed).  Stat-block zeroing + tier/badge bugs remain open until EMU-5 integration PI ships.
+EMU-5's second commit (`da6dbeb`, handoff IDLE marker) was skipped during
+rebase (conflicted on pipeline-handoff.md; superseded by this BUILDER_DONE).
 
-**Root cause observation:** emergence-ui project context file (`D:\Clanker\projects\emergence-ui.md`) only tracked EMU-3 and EMU-4 PIs -- EMU-11 shipped without a planner entry.  Fix: planner side-of-fence updates project context on every emergence-ui PI close, even if builder work was Drew-directed outside the planner loop.
+### Test count
 
----
+Before rebase (preserve branch): 141 passing, 0 failing.
+After EMU-12 T4 paused coexistence: 144 passing, 0 failing (+3 PAUSED cases).
 
-## Prior EMU-4 builder report preserved below
+### Deviations
+
+- T3 renumber: preserve branch had two commits; the handoff-close commit
+  was dropped via `git rebase --skip` since it was a marker-only commit
+  that would be superseded by BUILDER_DONE anyway.  Substantive commit
+  (cfd36c5) was reworded to EMU-12 via `git commit --amend`; the T4
+  paused work landed as a separate EMU-12 commit.  Net: two EMU-12
+  commits on master instead of one squashed commit -- preserves clear
+  separation between rebased-from-EMU-5 work and new-for-EMU-12 T4 work.
+- No other deviations.
+
+### Token total
+
+~12k actual vs 15k estimated.  Breakdown in `docs/emu12-token-report.md`.
+
+## EMU-12: BL-230 integration -- rebase emu5-bl007-preserve onto master
+
+### Scope
+
+Integration-only PI.  No new features.  Six tasks:
+
+1. **T1:** Fetch + inspect.  `git log origin/master..emu5-bl007-preserve` + the json-loader conflict diff.
+2. **T2:** Rebase `emu5-bl007-preserve` onto `origin/master`.  Resolve `data/json-loader.ts` conflict combining EMU-11's string-model_config tolerance with EMU-5's mapRunWithManifest + orphan filter + dedup warn.
+3. **T3:** Renumber commit messages from "EMU-5: ..." > "EMU-12: ...".  Preserve ECHOIT trailer.
+4. **T4:** Extend `runBadgeText` to three-way (ENDED / PAUSED / RUNNING) so EMU-10's paused-status handling coexists with our tier/badge reconciliation.
+5. **T5:** Full vitest suite: >= 141 passing, 0 failing.
+6. **T6:** Fast-forward push to master.  Delete preservation branch from origin + local.
+
+### Spec
+
+`docs/emu12-build-spec.md` -- two-tier format.
+
+### Estimated budget
+
+~15k tokens.  Per-task: T1 2k / T2 5k / T3 2k / T4 2k / T5 3k / T6 1k.
+
+### Passing floor + failing set
+
+- Passing floor: vitest suite >= 141 passing, 0 failing.  Fast-forward push succeeds.  Preservation branch deleted cleanly.
+- Failing set: none.
+
+### Planner notes
+
+- Drew explicitly approved option (a) autonomous rebase.  Proceed without further confirmation.
+- Conflict semantics expected to be orthogonal: EMU-11 touches model_config field normalization, EMU-5 touches manifest merge + orphan filter.  If they're actually colliding in the same function, BUILDER_BLOCKED with the tradeoff surfaced.
+- T4 is load-bearing.  EMU-10's paused state needs a proper slot in the three-way badge logic.  Our original EMU-5 spec skipped paused for "product direction required" reasons; but since EMU-10 already shipped paused handling, inheriting that shape is the correct move.
+- Freshness predicate (DC-14 option 5) still out of scope.  Drew has the 4 open product questions on his desk separately.
+
+### Next gate
+
+Builder reports BUILDER_DONE with final master SHA.  Planner writes DC-16 (drewconrad.us submodule bump) + ES-21 (echoit-site submodule bump) to propagate the fix to live sites.
