@@ -11,7 +11,7 @@ error: null
 
 ## BUILDER_DONE -- EMU-13
 
-Final master SHA: <pending-commit>
+Final master SHA: 44ae086
 
 ### Files changed
 - utils/library.ts (TERMINAL_STATUSES + status-based isEndedRun + defensive runBadgeText)
