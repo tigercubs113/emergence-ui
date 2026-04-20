@@ -1,12 +1,24 @@
 ---
-status: BUILDER_DONE
+status: IDLE
 pi: EMU-12
 type: integration
 file_limit: 0
 build_spec: docs/emu12-build-spec.md
-updated_by: builder
-updated_at: 2026-04-20T21:55:00Z
+updated_by: planner
+updated_at: 2026-04-20T22:00:00Z
 error: null
+---
+
+## EMU-12 CLOSED
+
+Planner reviewed builder report.  Clean rebase, orthogonal conflict resolution preserved both EMU-11 `normalizeModelConfig` + EMU-5 `mapRunWithManifest` / orphan filter / dedup warn.  Three commits on master: `407bdfa` (rebased BL-007 work), `9ecec23` (T4 runBadgeText three-way for paused coexistence), `0de9fed` (close).  Tests: 141 > 144 passing, 0 failing (+3 PAUSED coexistence cases).  Token 12k vs 15k est (-20%).  Preservation branch deleted from origin + local.
+
+**BL-230 RESOLVED.**  emergence-ui master now contains the BL-007 code-layer fix: stat-block binding from merged manifest, three-way badge (ENDED / PAUSED / RUNNING) derived from status, orphan filter in listRuns with once-per-run console.warn.
+
+**Consumer PIs next:** drewconrad.us DC-16 + echoit-site ES-21 bump submodule pointer to `0de9fed`.  Propagates fix to live sites.
+
+**Follow-up backlog unblocked:** BL-231 (tier predicate status-based per Drew's Q1/Q2) and BL-232 (freshness predicate per Q3) were blocked on EMU-12 landing; now both executable.
+
 ---
 
 ## BUILDER_DONE -- EMU-12
