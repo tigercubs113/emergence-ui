@@ -110,7 +110,7 @@ QA returns PASS or FAIL + findings.  FAIL bounces to a builder subagent for fix 
 ## Handoff Protocol
 
 1. Read `docs/pipeline-handoff.md`
-2. If `status: READY_FOR_BUILDER` > execute the build spec
+2. If `status: READY_FOR_BUILDER` > flip status: BUILDER_EXECUTING (set pi, updated_at, updated_by; leave Results/QA verdict empty) as your first write to claim the handoff and mark mid-flight (this distinguishes not-yet-claimed from mid-flight from session-died-leaving-a-partial-branch; this is NOT a replacement for the QA gate before BUILDER_DONE) > then execute the build spec
 3. Otherwise > start handoff polling via Monitor tool with the canonical command from OPERATIONS §11.  Save the `task_id` for later TaskStop on PI close.  Do NOT use raw `Bash run_in_background` for this -- Monitor surfaces state changes as inline notifications; raw bash dribbles output to a temp file you'd have to actively re-tail.  Do NOT use CronCreate (burns 500-1000 tokens/min).  Do NOT use `/loop` (LLM polling unreliable).  Do NOT use LLM subagent (deterministic poller only).
 
 After BUILDER_DONE, relaunch the Monitor poller.
