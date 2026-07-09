@@ -104,6 +104,7 @@ QA returns PASS or FAIL + findings.  FAIL bounces to a builder subagent for fix 
 - All code and test subagents MUST use `model: "opus"`.
 - Use superpowers skills, sequential thinking, context7.
 - If a subagent fails due to a transient error (API 500, 429, timeout), retry immediately up to 3 times.
+- **CHANGE-CLASS TRIPWIRE.**  The handoff frontmatter carries `change_class` (express / standard / major; unset = standard).  If mid-build the work turns out to require ANY of: DB migration / DDL / prod DML, money logic (Stripe, pricing, payouts, refunds, currency arithmetic), auth / session / permission logic, secrets / env vars / security headers, or a new externally reachable surface (route, webhook, cron, public API), and `change_class` is not `major`: STOP.  Flip BUILDER_BLOCKED naming the trigger.  Never build past it and never self-promote; the planner reruns the skipped gates.  Reference: planner OPERATIONS.md §8.2.
 
 ---
 
